@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "name": "eshop-add-to-cart",
+  "description": "IronBee's e-shop demo: sign in, tell the right product apart among many \"Add to cart\" buttons. Password: demo123.",
+  "goal": "Log in, add the \"iPhone 15 Pro\" to the cart, then open the cart.",
+  "url": "https://eshop.demo.ironbee.dev/",
+  "values": {
+    "email": "demo@example.com"
+  },
+  "secretNames": [
+    "password"
+  ],
+  "passwordSecrets": [
+    "password"
+  ],
+  "descriptions": {
+    "email": "e-shop login email",
+    "password": "e-shop login password"
+  },
+  "createdAt": "2026-09-25T00:00:00.000Z",
+  "updatedAt": "2026-09-25T00:00:00.000Z"
+}

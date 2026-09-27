@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "name": "ikea-office-chair",
+  "description": "IKEA: search, a color filter, sorting by price, then the first product and its details.",
+  "goal": "On IKEA, search for \"office chair\", filter the results to the color \"black\", sort them by price from low to high, open the first chair in the sorted list, and on its page open the product details.",
+  "url": "https://www.ikea.com/us/en/",
+  "values": {},
+  "secretNames": [],
+  "createdAt": "2026-09-26T13:00:00.000Z",
+  "updatedAt": "2026-09-26T13:00:00.000Z"
+}

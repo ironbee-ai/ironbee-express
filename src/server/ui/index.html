@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IronBee Express</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+    <div class="brand"><img class="logo" src="/favicon.svg" alt=""><span>IronBee <strong>Express</strong></span></div>
+    <div id="engine-status" class="pills"></div>
+</header>
+<div id="ironbee-notice" class="ib-notice" hidden></div>
+
+<main class="layout">
+    <section class="panel form-panel">
+        <div id="scenario-chip" class="scenario-chip" hidden>
+            <span>Scenario <b id="scenario-name"></b> <small id="scenario-meta"></small></span>
+            <button type="button" class="ghost" id="scenario-clear" title="Unload the scenario and clear what it filled in">× clear</button>
+        </div>
+        <form id="run-form" autocomplete="off">
+            <label class="field">
+                <span>Start URL</span>
+                <input id="url" type="url" placeholder="https://example.com/" required>
+            </label>
+            <label class="field">
+                <span>Goal</span>
+                <textarea id="goal" rows="7" placeholder="What should be done, e.g. Log in, create a new project named Demo, then open its settings." required></textarea>
+            </label>
+
+            <div class="field">
+                <span>Browser</span>
+                <div class="profile-row">
+                    <select id="profile" aria-label="Browser profile"></select>
+                    <button type="button" class="ghost" id="profile-delete" title="Delete this profile: its cookies, storage and logins" hidden>Delete</button>
+                </div>
+                <div id="profile-new" class="profile-row" hidden>
+                    <input id="profile-name" placeholder="profile name, e.g. acme-admin" aria-label="New profile name">
+                    <button type="button" id="profile-create">Create</button>
+                </div>
+                <div id="profile-hint" class="hint"></div>
+            </div>
+
+            <fieldset>
+                <legend>Values <small>the agent chooses among these when a field needs text</small></legend>
+                <div id="values" class="rows"></div>
+                <button type="button" class="ghost" id="add-value">+ value</button>
+            </fieldset>
+
+
+
+            <fieldset>
+                <legend>Text</legend>
+                <div class="subtitle">Candidates the engine chooses from</div>
+                <div id="candidates" class="choices inline"></div>
+                <div class="subtitle">When none fits, a model writes the value</div>
+                <div class="model-row">
+                    <select id="text-provider" aria-label="Text model provider"></select>
+                    <select id="text-model" aria-label="Text model" disabled></select>
+                </div>
+                <div id="text-model-detail" class="hint"></div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Scenario</legend>
+                <div class="save-row">
+                    <input id="save-as" placeholder="name, e.g. create-project" aria-label="Scenario name">
+                    <button type="button" id="save-scenario" title="Save the form as this scenario now">Save</button>
+                </div>
+                <div class="hint">Save stores the form as a scenario (goal, URL, values — secrets by name only); nothing else writes one. A passed run of a loaded scenario caches how it was done for that goal and URL, and later runs replay it without the engine.</div>
+                <div id="save-confirm" class="save-confirm" hidden>
+                    <span id="save-confirm-text"></span>
+                    <span class="save-confirm-buttons">
+                        <button type="button" id="save-confirm-yes" class="primary">Overwrite</button>
+                        <button type="button" id="save-confirm-no" class="ghost">Cancel</button>
+                    </span>
+                </div>
+                <div id="save-status" class="hint"></div>
+                <label class="choice"><input type="checkbox" id="explore"> <span>Re-explore with the engine (ignore the cached recording)</span></label>
+            </fieldset>
+
+            <div class="actions">
+                <button type="submit" id="run" class="primary">Run</button>
+                <button type="button" id="stop" class="danger" disabled>Stop</button>
+                <button type="button" id="clear" class="ghost" title="Clear the form and the last result">Clear</button>
+            </div>
+            <div id="form-error" class="error" hidden></div>
+        </form>
+
+        <div class="scenarios">
+            <h2>Saved scenarios</h2>
+            <ul id="scenario-list" class="scenario-list"></ul>
+        </div>
+    </section>
+
+    <section class="panel view-panel">
+        <div class="hud">
+            <div id="stopwatch" class="stopwatch idle">
+                <span class="sw-dot"></span>
+                <span class="sw-time"><span id="sw-main">00:00</span><span id="sw-frac" class="sw-frac">.00</span></span>
+                <span id="sw-label" class="sw-label">ready</span>
+            </div>
+            <div class="hud-stats">
+                <div class="hud-stat"><b id="hud-steps">0</b><small>steps</small></div>
+                <div class="hud-stat"><b id="hud-actions">0</b><small>actions</small></div>
+                <div class="hud-stat"><b id="hud-pace">–</b><small>per step</small></div>
+            </div>
+            <span id="phase" class="badge">idle</span>
+        </div>
+
+        <div class="viewer">
+            <div id="user-action" class="user-action" hidden>
+                <div class="ua-text">
+                    <b>Your turn</b>
+                    <span id="ua-prompt"></span>
+                    <span class="hint">Act on the page below: your clicks and typing go to the browser. Jev continues from there.</span>
+                </div>
+                <div class="ua-buttons">
+                    <button id="ua-continue" type="button" class="primary">Continue</button>
+                    <button id="ua-stop" type="button">Stop run</button>
+                </div>
+            </div>
+            <div id="browser-frame" class="browser-frame">
+                <div class="bf-bar">
+                    <span class="bf-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span class="bf-nav" aria-hidden="true">
+                        <svg viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" /></svg>
+                        <svg viewBox="0 0 16 16"><path d="m6 3 5 5-5 5" /></svg>
+                        <svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5" /></svg>
+                    </span>
+                    <div class="bf-address" title="">
+                        <svg id="bf-lock" class="bf-lock" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>
+                        <span id="bf-insecure" class="bf-insecure" hidden>Not secure</span>
+                        <span id="bf-url" class="bf-url"><span class="bf-host">about:blank</span></span>
+                    </div>
+                </div>
+                <div class="bf-progress" aria-hidden="true"></div>
+                <div class="bf-page">
+                    <canvas id="screen" width="1280" height="720"></canvas>
+                    <div id="screen-empty" class="screen-empty">The page appears here while a run is recording.</div>
+                </div>
+            </div>
+            <div class="viewer-bar">
+                <span id="counts"></span>
+                <span id="now" class="now"></span>
+            </div>
+        </div>
+
+        <nav id="run-tabs" class="run-tabs" role="tablist"></nav>
+        <div id="tab-steps" class="tab-pane">
+            <div class="steps-head">
+                <span class="legend"><b class="ok">✓</b> page changed <b class="same">✓</b> unchanged <b class="bad">✗</b> refused</span>
+            </div>
+            <div id="rescue-notice" class="rescue-notice" role="status" aria-live="polite" hidden></div>
+            <ul id="warnings" class="warnings" role="status" aria-live="polite" hidden></ul>
+            <ol id="steps" class="steps"></ol>
+        </div>
+        <div id="result" class="tab-pane result" hidden></div>
+        <div id="evidence" class="tab-pane" hidden></div>
+    </section>
+</main>
+
+<template id="value-row">
+    <div class="row">
+        <input class="name" placeholder="name (e.g. email)" aria-label="Value name">
+        <span class="value-wrap">
+            <input class="value" placeholder="value" aria-label="Value">
+            <button type="button" class="reveal" title="Show the value" aria-label="Show the value" aria-pressed="false" hidden><svg class="eye-open" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><svg class="eye-closed" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M3 3l18 18M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7c1.9 0 3.5-.6 4.9-1.4M9.9 9.9a3 3 0 0 0 4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+        </span>
+        <span class="secret-flags">
+            <label class="secret" title="Typed, never shown to any model"><input type="checkbox" class="is-secret"> secret</label>
+            <label class="secret password-flag" title="A login password: typed into password fields of the start site only" hidden><input type="checkbox" class="is-password"> password</label>
+        </span>
+        <button type="button" class="remove" title="Remove">×</button>
+        <input class="description" placeholder="what it is for (optional), e.g. billing address" aria-label="Value description">
+    </div>
+</template>
+
+
+<script src="/trace-view.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

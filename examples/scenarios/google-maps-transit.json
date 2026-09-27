@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "name": "google-maps-transit",
+  "description": "Google Maps: directions between two places from suggestions, public transport, a departure time, then the first route's details.",
+  "goal": "On Google Maps, get directions from \"Eiffel Tower\" to \"Louvre Museum\": open the directions, fill in both places choosing each from the suggestions, choose public transport, set the departure time to leave at \"9:00 AM\", and open the details of the first route.",
+  "url": "https://www.google.com/maps?hl=en",
+  "values": {},
+  "secretNames": [],
+  "createdAt": "2026-09-26T13:00:00.000Z",
+  "updatedAt": "2026-09-26T13:00:00.000Z"
+}

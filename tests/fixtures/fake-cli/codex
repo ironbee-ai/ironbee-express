@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+// A stand-in for `codex exec`: writes its arguments, stdin and cwd as the last message to the -o file.
+const fs = require("fs");
+let input = "";
+process.stdin.on("data", (d) => (input += d));
+process.stdin.on("end", () => {
+    const args = process.argv.slice(2);
+    const out = args[args.indexOf("-o") + 1];
+    fs.writeFileSync(out, JSON.stringify({ text: JSON.stringify({ args, input, cwd: process.cwd() }) }));
+});

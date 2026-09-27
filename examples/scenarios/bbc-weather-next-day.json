@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "name": "bbc-weather-next-day",
+  "description": "BBC Weather: search a city with suggestions, open its forecast, then the next day's.",
+  "goal": "Find the weather forecast for \"Amsterdam\", then open the forecast for the next day.",
+  "url": "https://www.bbc.com/weather",
+  "values": {},
+  "secretNames": [],
+  "createdAt": "2026-09-26T00:00:00.000Z",
+  "updatedAt": "2026-09-26T00:00:00.000Z"
+}

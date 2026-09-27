@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "name": "ebay-keyboard",
+  "description": "eBay: search, two filters (buying format and condition), sorting, then the first listing.",
+  "goal": "On eBay, search for \"mechanical keyboard\", filter the results to \"Buy It Now\" and the condition \"New\", sort them by \"Price + Shipping: lowest first\", and open the first listing in the sorted results. Do not buy.",
+  "url": "https://www.ebay.com/",
+  "values": {},
+  "secretNames": [],
+  "createdAt": "2026-09-26T13:00:00.000Z",
+  "updatedAt": "2026-09-26T13:00:00.000Z"
+}

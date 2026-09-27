@@ -1,0 +1,14 @@
+#!/usr/bin/env node
+// A stand-in for the Claude Code CLI in print mode: echoes its arguments, stdin and cwd as the result.
+let input = "";
+process.stdin.on("data", (d) => (input += d));
+process.stdin.on("end", () => {
+    const args = process.argv.slice(2);
+    // The child's environment is whitelisted, so the failure is asked for in the prompt, not the env.
+    if (input.includes("FAKE_CLI_FAIL")) {
+        process.stderr.write("not logged in\n");
+        process.exit(1);
+    }
+    const env = Object.keys(process.env).sort();
+    process.stdout.write(JSON.stringify({ type: "result", is_error: false, result: JSON.stringify({ text: JSON.stringify({ args, input, cwd: process.cwd(), env }) }) }));
+});

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+runs/
+.idea/
+.ibexpress/
+
+# Internal: guides for coding agents working on this repo (kept locally, not published)
+CLAUDE.md
+AGENTS.md
+docs/claude-md/

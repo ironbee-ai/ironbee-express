@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+// A CLI that fails at start-up without reading its stdin: a long prompt then hits a closed pipe.
+process.stderr.write("cannot start\n");
+process.exit(3);
