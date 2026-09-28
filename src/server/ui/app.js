@@ -751,7 +751,13 @@ function decidedBy(step) {
         li.append(h("span", "decided-label", label), h("span", "", text));
         list.appendChild(li);
     };
-    if (step.mode === "replay") {
+    if (step.mode === "replay" && step.reidentified) {
+        item(
+            "Action",
+            `replayed from the scenario's recording; the page had changed around the recorded ${step.reidentified.from}, ` +
+                `and Jev found it again (p=${step.reidentified.probability.toFixed(2)}, ${fmtMs(step.decisionMs)}) — the recording is updated when the run passes`
+        );
+    } else if (step.mode === "replay") {
         item("Action", "replayed from the scenario's recording — no engine, no text model");
     } else if (step.mode === "rescue" && step.rescue) {
         item(
@@ -807,6 +813,8 @@ function renderStep(step) {
     mode.textContent = step.mode === "rescue" ? "LLM" : step.mode ?? "engine";
     if (step.mode === "rescue" && step.rescue) {
         mode.title = `Chosen by ${step.rescue.model}: Jev was stuck (${step.rescue.stuck})`;
+    } else if (step.reidentified) {
+        mode.title = `The page had changed around the recorded ${step.reidentified.from}; Jev found it again`;
     }
     summary.querySelector(".op").appendChild(mode);
     const what = summary.querySelector(".what");
@@ -837,7 +845,9 @@ function renderStep(step) {
     what.title = what.textContent;
     summary.querySelector(".ms").textContent =
         (step.mode === "replay"
-            ? "replayed"
+            ? step.reidentified
+                ? `replayed · Jev ${step.decisionMs}ms`
+                : "replayed"
             : step.mode === "rescue" && step.rescue
               ? `${step.rescue.model} ${fmtMs(step.decisionMs)}`
               : `Jev ${step.decisionMs}ms`) +
@@ -854,7 +864,9 @@ function renderStep(step) {
     } else if (step.mode === "replay") {
         const note = document.createElement("div");
         note.className = "hint";
-        note.textContent = "Replayed from the scenario's recording — no engine decision.";
+        note.textContent = step.reidentified
+            ? "Replayed from the scenario's recording; Jev found the recorded control again, the page having changed around it."
+            : "Replayed from the scenario's recording — no engine decision.";
         body.appendChild(note);
     }
     if (step.targetTop) {

@@ -37,7 +37,7 @@ export interface Recording {
     steps: RecordedStep[];
     /** The run's time when recorded. */
     elapsedMs: number;
-    /** Set when a replay diverged and the engine repaired the rest. */
+    /** Set when the engine repaired a replay: took over where it diverged, or found a control the page changed around. */
     healedAt?: string;
 }
 
@@ -70,6 +70,11 @@ export enum RunMode {
     EXPLORE = "explore",
     /** A recording was replayed end to end; no engine decisions. */
     REPLAY = "replay",
+    /**
+     * A recording was replayed end to end, and the engine found again a control the page had
+     * changed around (one question each, no step decided); a passed run re-records it.
+     */
+    REPLAY_REPAIRED = "replay-repaired",
     /** A recording was replayed until it diverged; the engine finished the run. */
     REPLAY_HEALED = "replay-healed",
 }

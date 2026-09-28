@@ -112,7 +112,9 @@ function formatStep(e: StepEvent): string {
         ? `  (the user: ${e.userAction.prompt} — ${(e.userAction.waitMs / 1000).toFixed(1)}s)`
         : e.reason
             ? `  (${e.reason})`
-            : "";
+            : e.reidentified
+                ? `  (the page changed around the recorded ${e.reidentified.from}; the engine found it again, p=${e.reidentified.probability.toFixed(2)})`
+                : "";
     return `${String(e.step).padStart(3)} +${(e.elapsedMs / 1000).toFixed(2)}s ${mark} ${e.operation}${target}${text}  [p=${e.confidence.toFixed(2)} ${timing}]${reason}`;
 }
 

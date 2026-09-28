@@ -5,8 +5,10 @@ import { join } from "path";
 import { StepEvent, StepMode } from "../../../src/agent/agent";
 import { Operation, UserActionKind } from "../../../src/agent/policy";
 import { ActRequest, ActResult, ControlAction, ControlOperation, ControlSnapshot } from "../../../src/devtools/types";
-import { describeTarget, findTarget, TargetDescriptor } from "../../../src/scenario/descriptor";
+import { describeTarget, findTarget, lookupTarget, TargetDescriptor, TargetLookup } from "../../../src/scenario/descriptor";
 import { recordSteps } from "../../../src/scenario/recording";
+import { ReidentifyRequest, Reidentified, TargetReidentifier } from "../../../src/scenario/reidentify";
+import { sleep } from "../../../src/util/time";
 import { missingSecrets, resolveTextRef } from "../../../src/scenario/replayer";
 import { RecordingCache } from "../../../src/scenario/cache";
 import { promptHash, ScenarioError, ScenarioStore, validateScenarioName } from "../../../src/scenario/store";
@@ -60,6 +62,152 @@ describe("descriptors", (): void => {
         const d: TargetDescriptor = describeTarget(s.controls[1], s);
         expect(d).toEqual({ role: "button", name: "Remove", ordinal: 0 });
         expect(findTarget(d, s)?.id).toBe(2);
+    });
+
+    it("leave a changed price beside the recorded control to the engine: the same-named controls are its candidates", (): void => {
+        const d: TargetDescriptor = { role: "button", name: "Add to cart", context: "Aurora Headphones $129.00", ordinal: 0 };
+        const s = snapshot(1, [
+            control(1, "button", "Add to cart", [ControlOperation.CLICK], { context: "Nimbus Speaker $59.00" }),
+            control(2, "button", "Add to cart", [ControlOperation.CLICK], { context: "Aurora Headphones $119.00" }),
+            control(3, "link", "Cart", [ControlOperation.CLICK]),
+        ]);
+        const found: TargetLookup = lookupTarget(d, s);
+        expect(found.control).toBeUndefined();
+        expect(found.candidates.map((c): number => c.id)).toEqual([1, 2]);
+        expect(findTarget(d, s)).toBeUndefined();
+        // What the descriptor settles itself needs no reading: an exact context, a badge, nothing named so.
+        expect(lookupTarget({ ...d, context: "Aurora Headphones $119.00" }, s)).toEqual({ control: s.controls[1], candidates: [] });
+        expect(lookupTarget({ ...d, context: "Aurora Headphones" }, s)).toEqual({ control: s.controls[1], candidates: [] });
+        expect(lookupTarget({ role: "button", name: "Checkout", ordinal: 0 }, s)).toEqual({ candidates: [] });
+    });
+
+    it("leave twins that appeared beside a control recorded without context to the engine, not take the first", (): void => {
+        // Unique when recorded (no context); now a promotion above it has the same button.
+        const d: TargetDescriptor = { role: "button", name: "Add to cart", ordinal: 0 };
+        const s = snapshot(1, [
+            control(1, "button", "Add to cart", [ControlOperation.CLICK], { context: "Deal of the day: Nimbus Speaker" }),
+            control(2, "button", "Add to cart", [ControlOperation.CLICK], { context: "Aurora Headphones" }),
+        ]);
+        expect(lookupTarget(d, s)).toEqual({ candidates: s.controls });
+        expect(findTarget(d, s)).toBeUndefined();
+        // Still one of its kind: it is the one.
+        const one = snapshot(2, [control(2, "button", "Add to cart", [ControlOperation.CLICK])]);
+        expect(lookupTarget(d, one)).toEqual({ control: one.controls[0], candidates: [] });
+    });
+});
+
+describe("a control the page changed around", (): void => {
+    const limits: { maxControls: number; maxTextChars: number } = { maxControls: 50, maxTextChars: 1_000 };
+    const plainText: TextStrategy = { choices: [], secrets: {} };
+    const aurora: TargetDescriptor = { role: "button", name: "Add to cart", context: "Aurora Headphones $129.00", ordinal: 0 };
+
+    function shop(auroraContext: string): Record<string, { controls: ReturnType<typeof control>[]; text?: string; links?: Record<string, string> }> {
+        return {
+            products: {
+                controls: [
+                    control(1, "button", "Add to cart", [ControlOperation.CLICK], { context: "Nimbus Speaker $59.00" }),
+                    control(2, "button", "Add to cart", [ControlOperation.CLICK], { context: auroraContext }),
+                ],
+                links: { "Add to cart": "cart" },
+            },
+            cart: { controls: [], text: "Your cart" },
+        };
+    }
+
+    const recording: Recording = {
+        promptHash: "h",
+        recordedAt: "",
+        engine: "e",
+        elapsedMs: 0,
+        steps: [{ operation: Operation.CLICK, target: aurora, path: "/products" }],
+    };
+
+    function reidentifier(answer: (request: ReidentifyRequest) => Reidentified): { asked: ReidentifyRequest[]; reidentifier: TargetReidentifier } {
+        const asked: ReidentifyRequest[] = [];
+        return {
+            asked,
+            reidentifier: {
+                reidentify: async (request: ReidentifyRequest): Promise<Reidentified> => {
+                    asked.push(request);
+                    return answer(request);
+                },
+            },
+        };
+    }
+
+    it("is acted on once the engine finds it again, and the step carries its new descriptor", async (): Promise<void> => {
+        const client: SiteClient = new SiteClient(shop("Aurora Headphones $119.00"), "products");
+        const engine = reidentifier((r: ReidentifyRequest): Reidentified => ({ control: r.candidates.find((c): boolean => c.id === 2), probability: 0.97, ms: 12 }));
+        const events: StepEvent[] = [];
+        const replay: ReplayResult = await new Replayer({
+            client,
+            limits,
+            text: plainText,
+            settledMs: 50,
+            reidentifier: engine.reidentifier,
+            onStep: (e: StepEvent): void => {
+                events.push(e);
+            },
+        }).run(recording);
+        expect(replay.completed).toBe(true);
+        expect(client.acts.filter((a: ActRequest): boolean => a.action === ControlAction.CLICK).map((a): number | undefined => a.controlId)).toEqual([2]);
+        expect(engine.asked).toHaveLength(1);
+        expect(engine.asked[0]).toMatchObject({ operation: Operation.CLICK, recorded: aurora, recordedPath: "/products" });
+        expect(engine.asked[0].candidates.map((c): number => c.id)).toEqual([1, 2]);
+        expect(replay.reidentified).toBe(1);
+        expect(replay.reidentifyAsks).toBe(1);
+        expect(events[0]).toMatchObject({
+            mode: StepMode.REPLAY,
+            executed: true,
+            decisionMs: 12,
+            targetDescriptor: { role: "button", name: "Add to cart", context: "Aurora Headphones $119.00", ordinal: 0 },
+            reidentified: { from: 'button "Add to cart" (Aurora Headphones $129.00)', probability: 0.97 },
+        });
+        // The new descriptor is what a passed run records; the healing engine would read the note.
+        expect(recordSteps(events)[0].target?.context).toBe("Aurora Headphones $119.00");
+        expect(replay.history[0].note).toMatch(/page changed around the recorded button "Add to cart"/);
+    });
+
+    it("diverges as before when the engine sees none of them as it, asking once per set of candidates", async (): Promise<void> => {
+        const client: SiteClient = new SiteClient(shop("Aurora Headphones Gen 2 $249.00"), "products");
+        const engine = reidentifier((): Reidentified => ({ probability: 0.91, ms: 8 }));
+        const replay: ReplayResult = await new Replayer({ client, limits, text: plainText, settledMs: 50, reidentifier: engine.reidentifier }).run(recording);
+        expect(replay.completed).toBe(false);
+        expect(replay.reason).toMatch(/not on \/products \(the page settled without it for 50 ms; the engine saw none of the 2 controls named so as it \(p=0\.91\)\)/);
+        expect(engine.asked).toHaveLength(1);
+        expect(replay.reidentified).toBe(0);
+        expect(replay.reidentifyAsks).toBe(1);
+        expect(client.acts.filter((a: ActRequest): boolean => a.action === ControlAction.CLICK)).toHaveLength(0);
+    });
+
+    it("does not act on a control the engine is unsure of", async (): Promise<void> => {
+        const client: SiteClient = new SiteClient(shop("Aurora Headphones $119.00"), "products");
+        const engine = reidentifier((r: ReidentifyRequest): Reidentified => ({ unsure: r.candidates[1], probability: 0.55, ms: 8 }));
+        const replay: ReplayResult = await new Replayer({ client, limits, text: plainText, settledMs: 50, reidentifier: engine.reidentifier }).run(recording);
+        expect(replay.completed).toBe(false);
+        expect(replay.reason).toMatch(/the engine was not sure it is \[2\] button "Add to cart" \(Aurora Headphones \$119\.00\) \(p=0\.55\)/);
+        expect(client.acts.filter((a: ActRequest): boolean => a.action === ControlAction.CLICK)).toHaveLength(0);
+    });
+
+    it("diverges without a question when no reidentifier is given", async (): Promise<void> => {
+        const client: SiteClient = new SiteClient(shop("Aurora Headphones $119.00"), "products");
+        const replay: ReplayResult = await new Replayer({ client, limits, text: plainText, settledMs: 50 }).run(recording);
+        expect(replay.completed).toBe(false);
+        expect(replay.reason).toMatch(/not on \/products \(the page settled without it for 50 ms\)$/);
+        expect(replay.reidentifyAsks).toBe(0);
+    });
+
+    it("shows the engine the masked page: a secret beside a candidate never reaches it", async (): Promise<void> => {
+        const secretText: TextStrategy = {
+            choices: buildTextChoices("g", [new SuppliedValuesSource({}, { key: "p@ss" })], false, { key: "p@ss" }),
+            secrets: { key: "p@ss" },
+        };
+        const client: SiteClient = new SiteClient(shop("Aurora Headphones $119.00 · coupon p@ss"), "products");
+        const engine = reidentifier((): Reidentified => ({ probability: 0.9, ms: 1 }));
+        await new Replayer({ client, limits, text: secretText, settledMs: 50, reidentifier: engine.reidentifier }).run(recording);
+        expect(engine.asked).toHaveLength(1);
+        expect(JSON.stringify(engine.asked[0])).not.toContain("p@ss");
+        expect(engine.asked[0].candidates[1].context).toContain("[secret:key]");
     });
 });
 
@@ -505,6 +653,69 @@ describe("what a replay observes", (): void => {
         expect(events[1].userAction?.waitMs).toBeGreaterThanOrEqual(0);
         expect(replay.steps).toHaveLength(2);
         expect(replay.journey.steps).toHaveLength(2);
+    });
+
+    /** A page behind a slow API: a static "Loading…" while a request is in flight until `readyAt`, then the cart. */
+    class SlowClient extends SiteClient {
+        constructor(private readonly readyAt: () => number) {
+            super(
+                {
+                    loading: { controls: [], text: "Loading…" },
+                    cart: { controls: [control(2, "button", "Place order", [ControlOperation.CLICK])], links: { "Place order": "done" } },
+                    done: { controls: [], text: "Thank you" },
+                },
+                "loading"
+            );
+        }
+
+        override async act(request: ActRequest): Promise<ActResult> {
+            if (request.action !== ControlAction.WAIT) {
+                return super.act(request);
+            }
+            await sleep(5);
+            const loading: boolean = Date.now() < this.readyAt();
+            if (!loading && this.page === "loading") {
+                this.page = "cart";
+            }
+            const acted: ActResult = await super.act(request);
+            // A poll that asks about the network hears whether a request is still in flight.
+            return request.waitForNetworkMs ? { ...acted, networkIdle: !loading } : acted;
+        }
+    }
+
+    const placeOrder: Recording = {
+        promptHash: "h",
+        recordedAt: "",
+        engine: "e",
+        elapsedMs: 0,
+        steps: [{ operation: Operation.CLICK, target: { role: "button", name: "Place order", ordinal: 0 } }],
+    };
+
+    it("waits for a target past the settle time while a request is in flight: a static page may still be loading", async (): Promise<void> => {
+        const readyAt: number = Date.now() + 300;
+        const client: SlowClient = new SlowClient((): number => readyAt);
+        const replay: ReplayResult = await new Replayer({ client, limits, text: plainText, settledMs: 50 }).run(placeOrder);
+        expect(replay.completed).toBe(true);
+        expect(client.page).toBe("done");
+        // Every poll asked about the network.
+        expect(client.acts.filter((a: ActRequest): boolean => a.action === ControlAction.WAIT).every((a: ActRequest): boolean => (a.waitForNetworkMs ?? 0) > 0)).toBe(true);
+    });
+
+    it("gives up at the step's timeout on a page that keeps a request in flight, and says so", async (): Promise<void> => {
+        const client: SlowClient = new SlowClient((): number => Number.MAX_SAFE_INTEGER);
+        const started: number = Date.now();
+        const replay: ReplayResult = await new Replayer({ client, limits, text: plainText, settledMs: 50, stepTimeoutMs: 300 }).run(placeOrder);
+        expect(replay.completed).toBe(false);
+        expect(Date.now() - started).toBeGreaterThanOrEqual(300);
+        expect(replay.reason).toBe('CLICK button "Place order": not on /loading (not found within 300 ms, requests still in flight)');
+    });
+
+    it("still gives up once the page has settled with nothing in flight", async (): Promise<void> => {
+        const client: SlowClient = new SlowClient((): number => 0);
+        client.pages.cart.controls = [];
+        const replay: ReplayResult = await new Replayer({ client, limits, text: plainText, settledMs: 50, stepTimeoutMs: 5_000 }).run(placeOrder);
+        expect(replay.completed).toBe(false);
+        expect(replay.reason).toMatch(/the page settled without it for 50 ms/);
     });
 });
 

@@ -21,7 +21,7 @@ import { FakeEngine, RecordedRequest } from "../../helpers/fake-engine";
 import { answer, control } from "../../helpers/fixtures";
 import { SitePage, SiteClient } from "../../helpers/site-client";
 
-function site(cartName: string = "Cart"): Record<string, SitePage> {
+function site(cartName: string = "Cart", sony: string = "Sony headphones"): Record<string, SitePage> {
     return {
         login: {
             controls: [
@@ -33,7 +33,7 @@ function site(cartName: string = "Cart"): Record<string, SitePage> {
         products: {
             controls: [
                 control(3, "button", "Add to cart", [ControlOperation.CLICK], { context: "MacBook" }),
-                control(4, "button", "Add to cart", [ControlOperation.CLICK], { context: "Sony headphones" }),
+                control(4, "button", "Add to cart", [ControlOperation.CLICK], { context: sony }),
                 control(5, "button", cartName, [ControlOperation.CLICK]),
             ],
             links: { [cartName]: "cart" },
@@ -52,6 +52,7 @@ export function isDecision(r: RecordedRequest): boolean {
  * password field first. As the judge: the goal is done when the evidence shows
  * `doneText`; every anomaly gets `severity` — or, with `reviewFails`, the
  * review (the request that asks about anomalies) fails as an unreachable engine's would.
+ * Asked which control a changed recorded one is now: the Sony one.
  */
 function scriptedEngine(
     plan: string[],
@@ -63,6 +64,11 @@ function scriptedEngine(
     let next: number = 0;
     return new FakeEngine((r: RecordedRequest): Record<string, unknown> => {
         const q: Record<string, ChoiceQuestion> = r.questions as Record<string, ChoiceQuestion>;
+        if (q.same_control) {
+            const keys: string[] = Object.keys(q.same_control.criteria);
+            const sony: string | undefined = keys.find((k: string): boolean => JSON.stringify(q.same_control.criteria[k]).includes("Sony"));
+            return { same_control: answer(sony ?? "none", keys, 0.95) };
+        }
         if (!isDecision(r)) {
             if (reviewFails && Object.keys(q).some((k: string): boolean => k.startsWith("issue_"))) {
                 throw new Error("engine unreachable");
@@ -184,6 +190,77 @@ describe("scenarios through runGoal", (): void => {
         const repaired: Recording | undefined = cached("cart");
         expect(repaired?.healedAt).toBeDefined();
         expect(repaired?.steps.at(-1)?.target?.name).toBe("Basket");
+    });
+
+    /** Whether a request asks which control a changed recorded one is now. */
+    function isSameControl(r: RecordedRequest): boolean {
+        return "same_control" in r.questions;
+    }
+
+    it("finds a control the page changed around with one engine question, and re-records it when the run passes", async (): Promise<void> => {
+        await runGoal({ ...spec, saveAs: "cart" }, config, new SiteClient(site("Cart", "Sony headphones $299"), "login"), {}, undefined, {
+            engine: scriptedEngine(["Login", "Sony", "Cart"]),
+        });
+        expect(cached("cart")?.steps[2].target?.context).toBe("Sony headphones $299");
+
+        // The price changed: the recorded context names no button, and the engine is asked which one it is now.
+        const engine: FakeEngine = scriptedEngine([]);
+        const repaired: RunOutcome = await runGoal(
+            { scenario: "cart", secrets: { password: "pw" } },
+            config,
+            new SiteClient(site("Cart", "Sony headphones $249"), "login"),
+            {},
+            undefined,
+            { engine }
+        );
+        expect(repaired.mode).toBe(RunMode.REPLAY_REPAIRED);
+        expect(repaired.result.status).toBe(RunStatus.DONE);
+        expect(repaired.analysis?.verdict).toBe(Verdict.PASSED);
+        expect(repaired.divergence).toBeUndefined();
+        expect(engine.requests.filter(isDecision)).toHaveLength(0);
+        expect(engine.requests.filter(isSameControl)).toHaveLength(1);
+        expect(repaired.result.decisions).toBe(1);
+        expect(repaired.result.steps.find((s: StepEvent): boolean => s.reidentified !== undefined)).toMatchObject({
+            mode: StepMode.REPLAY,
+            executed: true,
+            reidentified: { from: 'button "Add to cart" (Sony headphones $299)' },
+        });
+        // The passed run re-records the prompt with the control's new descriptor…
+        const recording: Recording | undefined = cached("cart");
+        expect(recording?.healedAt).toBeDefined();
+        expect(recording?.steps[2].target?.context).toBe("Sony headphones $249");
+
+        // …so the next replay matches it as recorded, with no question.
+        const quiet: FakeEngine = scriptedEngine([]);
+        const again: RunOutcome = await runGoal(
+            { scenario: "cart", secrets: { password: "pw" } },
+            config,
+            new SiteClient(site("Cart", "Sony headphones $249"), "login"),
+            {},
+            undefined,
+            { engine: quiet }
+        );
+        expect(again.mode).toBe(RunMode.REPLAY);
+        expect(quiet.requests.filter(isSameControl)).toHaveLength(0);
+    });
+
+    it("asks nothing about a changed control when healing is off: the replay diverges there", async (): Promise<void> => {
+        await runGoal({ ...spec, saveAs: "cart" }, config, new SiteClient(site("Cart", "Sony headphones $299"), "login"), {}, undefined, {
+            engine: scriptedEngine(["Login", "Sony", "Cart"]),
+        });
+        const engine: FakeEngine = scriptedEngine([]);
+        const strict: RunOutcome = await runGoal(
+            { scenario: "cart", secrets: { password: "pw" }, heal: false },
+            config,
+            new SiteClient(site("Cart", "Sony headphones $249"), "login"),
+            {},
+            undefined,
+            { engine }
+        );
+        expect(strict.mode).toBe(RunMode.REPLAY);
+        expect(strict.result.status).toBe(RunStatus.BLOCKED);
+        expect(strict.divergence).toMatch(/button "Add to cart" \(Sony headphones \$299\)/);
+        expect(engine.requests.filter(isSameControl)).toHaveLength(0);
     });
 
     it("seeds the run's secrets into DevTools, types them by reference, and clears them", async (): Promise<void> => {

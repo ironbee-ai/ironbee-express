@@ -1,10 +1,13 @@
 /**
- * Replays a recording without a decision engine: each step finds its target
+ * Replays a recording without step decisions: each step finds its target
  * again by descriptor on the current snapshot and acts on it through the same
  * guarded DevTools call the engine's steps use. Instead of recorded WAITs, a
- * step waits (bounded) for its target to appear. The first step that cannot
- * be carried out ends the replay as DIVERGED, with where and why — the caller
- * decides whether the engine takes over from there.
+ * step waits (bounded) for its target to appear — while the page changes or
+ * loads. A target the page changed around (a price beside it, twins beside it)
+ * is found again by the engine in one question, when a reidentifier is given
+ * (reidentify.ts). The first step that cannot be carried out ends the replay
+ * as DIVERGED, with where and why — the caller decides whether the engine
+ * takes over from there.
  */
 
 import { AskUser, originOf, pageContentKey, QUIET_TIMEOUT_MS, StepEvent, StepMode, tabAddress, userPrompt } from "../agent/agent";
@@ -24,14 +27,21 @@ import { maskSecretsEncoded } from "../text/mask";
 import { TextChoice, TextRef, TextSource, TextStrategy } from "../text/types";
 import { pathOf } from "../util/url";
 import { Journey, JourneyRecorder } from "../verify/journey";
-import { findTarget, formatDescriptor } from "./descriptor";
+import { describeTarget, formatDescriptor, lookupTarget, TargetDescriptor, TargetLookup } from "./descriptor";
 import { TARGETED } from "./recording";
+import { Reidentified, TargetReidentifier } from "./reidentify";
 import { RecordedStep, Recording } from "./types";
 
 export const DEFAULT_STEP_TIMEOUT_MS: number = 8_000;
-/** A page that has not changed for this long will not produce the target by waiting. */
+/**
+ * A page that has neither changed nor had a request in flight for this long will not produce the
+ * target by waiting. A page still loading (a slow API behind a static "Loading…") is waited for, up
+ * to the step's timeout.
+ */
 export const DEFAULT_SETTLED_MS: number = 1_500;
 const POLL_MS: number = 200;
+/** The engine is asked about one step's changed target at most this often (once per set of candidates). */
+const MAX_REIDENTIFY_ASKS: number = 2;
 
 const ACTION_OF: Partial<Record<Operation, ControlAction>> = {
     [Operation.CLICK]: ControlAction.CLICK,
@@ -68,8 +78,10 @@ export interface ReplayOptions {
     /** When the run's own traffic began (the caller opened the page itself). Defaults to the replay's start. */
     evidenceSinceMs?: number;
     stepTimeoutMs?: number;
-    /** Give up on a step once the page has been unchanged this long without its target. */
+    /** Give up on a step once the page has been unchanged, with no request in flight, this long without its target. */
     settledMs?: number;
+    /** Finds a recorded control the page changed around (the engine); without one such a step diverges. */
+    reidentifier?: TargetReidentifier;
     signal?: AbortSignal;
     onStep?: (event: StepEvent) => void;
     /** The replay's clock starts (after the first observation): what `elapsedMs` counts from. */
@@ -91,6 +103,10 @@ export interface ReplayResult {
     snapshot: ControlSnapshot;
     elapsedMs: number;
     actions: number;
+    /** Steps carried out on a control the engine found again (one question each): the recording needs their new descriptors. */
+    reidentified: number;
+    /** Questions asked of the engine to find a changed control again (answered or not). */
+    reidentifyAsks: number;
     /** When the replay started (before navigation, so the start page's own requests count): the evidence window. */
     startedAtMs: number;
     /** The steps replayed and the pages visited (secrets masked). */
@@ -180,6 +196,10 @@ export class Replayer {
         const history: HistoryEntry[] = [];
         const busyOrigins: Set<string> = new Set();
         let actions: number = 0;
+        let reidentified: number = 0;
+        let reidentifyAsks: number = 0;
+        // The last act left requests in flight (its network wait ran out): the next step's page is still loading.
+        let loading: boolean = false;
         const result: (completed: boolean, divergedAt?: number, reason?: string) => ReplayResult = (
             completed: boolean,
             divergedAt?: number,
@@ -193,6 +213,8 @@ export class Replayer {
             snapshot: { ...snapshot, url: maskSecretsEncoded(snapshot.url, secrets) },
             elapsedMs: elapsed(),
             actions,
+            reidentified,
+            reidentifyAsks,
             startedAtMs,
             journey: journey.get(),
         });
@@ -206,9 +228,18 @@ export class Replayer {
             const settledMs: number = this.options.settledMs ?? DEFAULT_SETTLED_MS;
             let lastFingerprint: string = snapshot.fingerprint;
             let unchangedSince: number = Date.now();
+            // When a request was last seen in flight: a page that is loading has not settled.
+            let busyAt: number = loading ? Date.now() : 0;
+            let busy: boolean = loading;
             // DevTools' last refusal of this step (a secret denied, a covered control): the divergence
             // names it, and the healing engine sees it in the history — as it does the agent's refusals.
             let lastRefusal: string | undefined;
+            // The engine's pick for a target the page changed around, and what it was asked about.
+            let picked: { id: number; probability: number } | undefined;
+            let askedAbout: string | undefined;
+            let asks: number = 0;
+            let askedMs: number = 0;
+            let unrecognized: string | undefined;
             for (;;) {
                 // A Stop while this step waits for its target must not cost the page the step's action.
                 if (this.options.signal?.aborted) {
@@ -223,7 +254,48 @@ export class Replayer {
                 if (TARGETED.has(recorded.operation) && recorded.target === undefined) {
                     return result(false, i, `${recorded.operation}: the recording names no control to act on`);
                 }
-                const control: Control | undefined = recorded.target ? findTarget(recorded.target, page) : undefined;
+                const lookup: TargetLookup | undefined = recorded.target ? lookupTarget(recorded.target, page) : undefined;
+                let control: Control | undefined = lookup?.control;
+                // Whether this poll's control is the engine's pick, not the descriptor's own match.
+                let byEngine: boolean = false;
+                if (control === undefined && lookup !== undefined && lookup.candidates.length > 0 && this.options.reidentifier) {
+                    // The control the engine picked, while its element lives (ids stay with their element).
+                    control = picked ? lookup.candidates.find((c: Control): boolean => c.id === picked!.id) : undefined;
+                    // Asked again only about another set of candidates (the page went on loading).
+                    const about: string = lookup.candidates.map((c: Control): string => `${c.id}\u0000${c.context ?? ""}`).join("\u0001");
+                    if (control === undefined && about !== askedAbout && asks < MAX_REIDENTIFY_ASKS) {
+                        askedAbout = about;
+                        asks++;
+                        reidentifyAsks++;
+                        const answer: Reidentified = await this.options.reidentifier.reidentify({
+                            operation: recorded.operation,
+                            recorded: recorded.target!,
+                            recordedPath: recorded.path,
+                            candidates: lookup.candidates,
+                            page,
+                            history,
+                        });
+                        askedMs += answer.ms;
+                        if (answer.control) {
+                            picked = { id: answer.control.id, probability: answer.probability };
+                            control = answer.control;
+                            unrecognized = undefined;
+                        } else {
+                            unrecognized = answer.error
+                                ? `the engine could not be asked which control it is now: ${answer.error}`
+                                : answer.unsure
+                                    ? `the engine was not sure it is ${describeControl(answer.unsure)} (p=${answer.probability.toFixed(2)})`
+                                    : `the engine saw none of the ${lookup.candidates.length} controls named so as it (p=${answer.probability.toFixed(2)})`;
+                        }
+                    }
+                    byEngine = control !== undefined;
+                }
+                // Found again by the engine: the step keeps the control's new descriptor, so a passed run's recording carries it.
+                const descriptor: TargetDescriptor | undefined = byEngine ? describeTarget(control!, page) : recorded.target;
+                const found: Pick<StepEvent, "reidentified"> =
+                    byEngine ? { reidentified: { from: formatDescriptor(recorded.target!), probability: picked!.probability } } : {};
+                const note: Pick<HistoryEntry, "note"> =
+                    byEngine ? { note: `the page changed around the recorded ${formatDescriptor(recorded.target!)}; the engine found it again` } : {};
                 const needs: ControlOperation | undefined = NEEDS[recorded.operation];
                 const ready: boolean = recorded.target === undefined || (control !== undefined && control.ops.includes(needs!));
                 if (ready && recorded.operation === Operation.ASK_USER) {
@@ -245,10 +317,11 @@ export class Replayer {
                             elapsedMs: elapsed(),
                             operation: Operation.ASK_USER,
                             confidence: 1,
-                            decisionMs: 0,
+                            decisionMs: askedMs,
                             operationProbabilities: {},
                             target: field,
-                            targetDescriptor: recorded.target,
+                            targetDescriptor: descriptor,
+                            ...found,
                             executed: false,
                             reason: "stopped by the user",
                             url: page.url,
@@ -269,10 +342,11 @@ export class Replayer {
                         elapsedMs: elapsed(),
                         operation: Operation.ASK_USER,
                         confidence: 1,
-                        decisionMs: 0,
+                        decisionMs: askedMs,
                         operationProbabilities: {},
                         target: field,
-                        targetDescriptor: recorded.target,
+                        targetDescriptor: descriptor,
+                        ...found,
                         executed: true,
                         // The page the pause was decided on, like every step; the page it led to is in the journey.
                         url: page.url,
@@ -283,6 +357,10 @@ export class Replayer {
                     journey.step(event);
                     this.options.onStep?.(event);
                     history.push({ step: history.length + 1, operation: Operation.ASK_USER, target: field, executed: true, pageChanged, note: `the user was asked: ${prompt}` });
+                    if (found.reidentified) {
+                        reidentified++;
+                    }
+                    loading = false;
                     break;
                 }
                 if (ready) {
@@ -325,10 +403,12 @@ export class Replayer {
                     const acted: ActResult = await client.act(request);
                     const next: ControlSnapshot = acted.snapshot!;
                     if (acted.networkIdle === false) {
-                        // A site that never goes quiet is not waited for again — the site the
-                        // action landed on, as the agent marks it.
+                        // A site that never goes quiet is not waited for again after an action — the
+                        // site the action landed on, as the agent marks it. Waiting for a step's target
+                        // still reads what is in flight (below): a slow API is not a site that never goes quiet.
                         busyOrigins.add(originOf(next.url));
                     }
+                    loading = acted.networkIdle === false;
                     if (acted.executed) {
                         // What the page SAYS, as the agent measures it: DevTools' fingerprint also
                         // changes with the document's identity, so a reload of the same page would read as progress.
@@ -344,12 +424,13 @@ export class Replayer {
                             elapsedMs: elapsed(),
                             operation: recorded.operation,
                             confidence: 1,
-                            decisionMs: 0,
+                            decisionMs: askedMs,
                             operationProbabilities: {},
                             target,
                             text,
                             textSource: recorded.text?.source,
-                            targetDescriptor: recorded.target,
+                            targetDescriptor: descriptor,
+                            ...found,
                             textRef: recorded.text,
                             optionLabel: recorded.optionLabel,
                             ...(recorded.key ? { key: recorded.key } : {}),
@@ -372,8 +453,12 @@ export class Replayer {
                             text: text ?? recorded.key,
                             executed: true,
                             pageChanged,
+                            ...note,
                         });
                         actions++;
+                        if (found.reidentified) {
+                            reidentified++;
+                        }
                         snapshot = next;
                         break;
                     }
@@ -394,12 +479,13 @@ export class Replayer {
                             elapsedMs: elapsed(),
                             operation: recorded.operation,
                             confidence: 1,
-                            decisionMs: 0,
+                            decisionMs: askedMs,
                             operationProbabilities: {},
                             target,
                             text,
                             textSource: recorded.text?.source,
-                            targetDescriptor: recorded.target,
+                            targetDescriptor: descriptor,
+                            ...found,
                             textRef: recorded.text,
                             optionLabel: recorded.optionLabel,
                             ...(recorded.key ? { key: recorded.key } : {}),
@@ -422,7 +508,10 @@ export class Replayer {
                             text: text ?? recorded.key,
                             executed: false,
                             reason: acted.reason,
+                            ...note,
                         });
+                        // The question's time is told once, on the first step event after it.
+                        askedMs = 0;
                     }
                     snapshot = next;
                 }
@@ -430,7 +519,10 @@ export class Replayer {
                     lastFingerprint = snapshot.fingerprint;
                     unchangedSince = Date.now();
                 }
-                const settled: boolean = Date.now() - unchangedSince >= settledMs;
+                // Settled: nothing on the page changed AND nothing was in flight for settledMs. A static
+                // "Loading…" in front of a slow API is still loading; the step timeout bounds the wait
+                // (a page that keeps a request open — a long poll — is given up on there).
+                const settled: boolean = Date.now() - Math.max(unchangedSince, busyAt) >= settledMs;
                 if (Date.now() >= deadline || settled) {
                     const what: string = recorded.target
                         ? `${recorded.operation} ${formatDescriptor(recorded.target)}`
@@ -440,10 +532,21 @@ export class Replayer {
                     }
                     const why: string = settled
                         ? `the page settled without it for ${settledMs} ms`
-                        : `not found within ${stepTimeoutMs} ms`;
-                    return result(false, i, `${what}: not on ${pathOf(page.url)} (${why})`);
+                        : `not found within ${stepTimeoutMs} ms${busy ? ", requests still in flight" : ""}`;
+                    return result(false, i, `${what}: not on ${pathOf(page.url)} (${why}${unrecognized ? `; ${unrecognized}` : ""})`);
                 }
-                const waited: ActResult = await client.act({ action: ControlAction.WAIT, waitMs: POLL_MS, observe: true, ...limits });
+                const waited: ActResult = await client.act({
+                    action: ControlAction.WAIT,
+                    waitMs: POLL_MS,
+                    // Tells whether a request is still in flight: the page may still be loading its target.
+                    waitForNetworkMs: POLL_MS,
+                    observe: true,
+                    ...limits,
+                });
+                busy = waited.networkIdle === false;
+                if (busy) {
+                    busyAt = Date.now();
+                }
                 snapshot = waited.snapshot!;
                 // A page that appears while waiting for the step's target is a page the run saw.
                 see(snapshot);

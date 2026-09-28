@@ -285,21 +285,98 @@ configuration; it does not call the API, so "API key configured" does not mean t
 </details>
 
 <details>
-<summary><b><code>Unrecognized key(s) in object</code> from a tool call</b></summary>
+<summary><b>"The DevTools daemon exited during start"</b></summary>
 
 ```text
-content_start-recording: Invalid Tool Request: input: Unrecognized key(s) in object: 'showActions'
+The DevTools daemon exited during start (code 1)
 ```
 
-The daemon is older than the `@ironbee-ai/devtools` this repo asks for, and rejects a parameter the
-agent sends. It happens when the daemon is not the one from `node_modules`: `--daemon-script`, or
-`IRONBEE_DEVTOOLS_DAEMON_SCRIPT`, pointing at an older checkout of DevTools. Drop both and let the CLI
-start its own. A healthy daemon already listening is reused, so stop the old one too:
+Run `npm run build` first, and again after you update the project. A run needs the built files in
+`dist/`, and `npm run dev` does not build them.
+</details>
 
-```bash
-pkill -f daemon-server.js
-npm run dev -- ui
+<details>
+<summary><b>A port is already in use</b></summary>
+
+```text
+listen EADDRINUSE: address already in use 127.0.0.1:15986
 ```
+
+Another program, or a UI you already started, is using the port. Pick another one:
+`npm run dev -- ui --port 16000`.
+
+A run can fail the same way with `The DevTools daemon did not become healthy in time`, usually because
+something else holds the daemon's port (2071 by default). Add `--port <n>` to the command.
+</details>
+
+<details>
+<summary><b>A scenario asks for secrets you already gave</b></summary>
+
+```text
+Scenario checkout needs the secret(s) password (pass --secret name=… )
+```
+
+Secret values are never saved, only their names. Give them again on every run, for example
+`--password password=env:ESHOP_PW` or `--secret name=…`, or fill in the secret rows in the UI.
+</details>
+
+<details>
+<summary><b>A scenario explores instead of replaying, or needs the engine on every run</b></summary>
+
+- A recording is saved only after a run of that scenario **passes** its review.
+  `npm run dev -- scenarios list` shows how many recordings each scenario has.
+- A recording belongs to one goal and one start URL. After you edit either, the next run explores and
+  records again.
+- `--explore` ignores the recording for one run.
+- A site whose content changes between visits (search results, A/B tests) may need the engine on
+  every replay. That is expected. `npm run dev -- scenarios clear-cache <name>` starts that scenario over.
+</details>
+
+<details>
+<summary><b>The run ends BLOCKED on a login, CAPTCHA or SMS-code page</b></summary>
+
+These steps need a person. The run hands the browser over only when someone can take it:
+- always in the UI;
+- in the terminal only with `--headed`: you act in the browser window, then press Enter.
+
+Without that, the run cannot get past the page.
+</details>
+
+<details>
+<summary><b>A field stays empty or gets the wrong text</b></summary>
+
+Jev only chooses among the values you give, your secrets, and the texts your goal puts in quotes.
+- Give the value with `--value name=text`.
+- If the field's label does not match the name, add `--value-desc name=what-it-is-for`.
+- Or put the exact text in quotes in the goal.
+
+For free text, choose a text model: `--text-model provider/model`, or the model picker in the UI.
+</details>
+
+<details>
+<summary><b>A text model is missing from the list</b></summary>
+
+A provider appears once its key is set (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`),
+or once its CLI (`claude`, `codex`) is installed, on your `PATH` and logged in. `.env` is read at
+startup, so restart the UI after changing it.
+</details>
+
+<details>
+<summary><b>The run was not reported to IronBee</b></summary>
+
+- Connect first: **Connect IronBee** in the UI, from a browser on the same machine, or `ironbee login`
+  with the IronBee CLI.
+- A saved login is used only for its own domain (`IRONBEE_DOMAIN`, `ironbee.ai` by default).
+- `IBEXPRESS_IRONBEE_REPORT=off` turns reporting off.
+- When the platform rejects a send, the run still finishes. The output shows a warning with the
+  reason ("NOT reported: …").
+</details>
+
+<details>
+<summary><b>The run ends with <code>BUDGET</code></b></summary>
+
+The goal needed more steps than a run allows: 60 actions and 120 decisions by default. Raise
+`IBEXPRESS_MAX_ACTIONS` and `IBEXPRESS_MAX_DECISIONS` in `.env`, or split the goal into smaller ones.
 </details>
 
 ## Development
@@ -307,7 +384,7 @@ npm run dev -- ui
 ```bash
 npm run lint && npm test && npm run build
 IBEXPRESS_E2E_DAEMON_URL=http://127.0.0.1:2099 IBEXPRESS_E2E_ENGINE=jev npx jest tests/integration/eshop   # live
-IBEXPRESS_E2E_DAEMON_SCRIPT=../ironbee-devtools/dist/daemon-server.js npx jest tests/integration/control tests/integration/secrets   # live, local pages
+IBEXPRESS_E2E_DAEMON_SCRIPT=node_modules/@ironbee-ai/devtools/dist/daemon-server.js npx jest tests/integration/control tests/integration/secrets   # live, local pages
 ```
 
 ## Limits

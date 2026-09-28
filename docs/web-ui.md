@@ -66,7 +66,9 @@ action and what it acted on.
   stayed the same. A ✗ means it was not done; open the step for the reason.
 - A badge says who decided the step: **engine** (Jev), **replay** (from a scenario's recording) or
   **LLM** (the text model, while it had the controls; see
-  [Text and secrets](text-and-secrets.md#when-the-engine-is-stuck)).
+  [Text and secrets](text-and-secrets.md#when-the-engine-is-stuck)). A replayed step whose button
+  Jev had to find again, because the page changed around it, shows Jev's time next to "replayed".
+  See [Scenarios](scenarios.md#replay).
 - A step that typed text shows where the text came from: one of your values, a secret (masked), the
   goal, the text model, or you.
 

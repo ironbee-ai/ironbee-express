@@ -46,6 +46,14 @@ A recording is made when a run of a scenario passes its [review](review.md). Rec
 A replay repeats the recorded steps on the live page, then the engine checks the goal and reviews
 the run as usual. So a replay still needs the engine, only not for each step.
 
+Each step waits for its button or field to appear. While the page is still loading (a request is in
+flight), it keeps waiting, up to 8 seconds.
+
+If the page changed around a recorded button, the engine is asked once which button it is now, and
+the replay goes on. Two examples: a new price shows next to the product, or a second button of the
+same name appears above it. A run that passes this way updates the recording, so the next replay
+needs no question.
+
 If you were asked to act during the recorded run (a login, a CAPTCHA), the replay pauses at the same
 point and waits for you again. See [Your turn](web-ui.md#your-turn).
 
@@ -55,7 +63,8 @@ If the page has changed and a recorded step no longer fits, or the goal is not d
 engine takes over from that point and finishes the run. If that run passes, its recording replaces
 the old one.
 
-`--no-heal` ends the run at that point instead.
+`--no-heal` ends the run at that point instead. It also turns off the question about a changed
+button, so the replay does exactly what was recorded.
 
 ## Clearing recordings
 

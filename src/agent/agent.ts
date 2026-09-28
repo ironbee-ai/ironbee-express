@@ -151,6 +151,11 @@ export interface StepEvent {
     textReused?: boolean;
     /** The target as a recording keeps it. */
     targetDescriptor?: TargetDescriptor;
+    /**
+     * REPLAY: the page changed around the recorded control (as recorded: `from`), and the engine
+     * found it again (`decisionMs` is its question's time); `targetDescriptor` is the control's new one.
+     */
+    reidentified?: { from: string; probability: number };
     /** The typed value as a recording keeps it (secrets by name). */
     textRef?: TextRef;
     /** SELECT: the chosen option's label. */

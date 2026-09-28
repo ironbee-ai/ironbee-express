@@ -2,16 +2,17 @@
  * One run, end to end, shared by the CLI and the web UI.
  *
  * - With a scenario whose recording cache holds one for its current prompt
- *   (goal + start URL), the recording is REPLAYED (no decision engine). If the replay diverges, or
- *   the goal is not shown done after it, the engine takes over from where it
- *   stopped (HEAL) — unless healing is off or the engine is unavailable.
+ *   (goal + start URL), the recording is REPLAYED (no step decisions). A recorded control the
+ *   page changed around is found again by the engine in one question (REPAIRED). If the replay
+ *   diverges, or the goal is not shown done after it, the engine takes over from where it
+ *   stopped (HEAL) — unless healing is off or the engine is unavailable (then neither).
  * - Otherwise the engine EXPLORES; a DONE the evidence does not bear out is
  *   rejected (agent.ts).
  * - Then the engine REVIEWS the run: the final page, the app's requests,
  *   console errors and — with IronBee — the settled trace (spans and logs).
  *   It judges whether the goal is done and which anomalies are real problems
  *   (verify/analyzer.ts). The user writes no checks.
- * - A scenario's run whose review passes, explored or healed, is cached as
+ * - A scenario's run whose review passes, explored, repaired or healed, is cached as
  *   that prompt's recording. The scenario itself is never written by a run:
  *   only `saveAs` (an explicit save, before the run) writes one.
  *
@@ -32,6 +33,7 @@ import { RunReporter, RunVerdict, VerdictStatus } from "../ironbee/reporter";
 import { readTrace, TraceReport } from "../ironbee/trace";
 import { recordSteps } from "../scenario/recording";
 import { missingSecrets, ReplayResult, Replayer } from "../scenario/replayer";
+import { EngineReidentifier } from "../scenario/reidentify";
 import { RecordingCache } from "../scenario/cache";
 import { promptHash, ScenarioStore, validateScenarioName } from "../scenario/store";
 import { Recording, RunMode, Scenario, SCENARIO_FORMAT_VERSION } from "../scenario/types";
@@ -273,14 +275,14 @@ function dropEmpty(map: Record<string, string>): Record<string, string> {
     return Object.fromEntries(Object.entries(map).filter(([, v]: [string, string]): boolean => v.trim().length > 0));
 }
 
-/** A finished replay as a run result (no engine decisions). */
+/** A finished replay as a run result (no step decisions: its engine questions found changed controls again). */
 function replayResult(replay: ReplayResult, status: RunStatus, reason?: string, goal?: GoalJudgement): RunResult {
     return {
         status,
         reason,
         elapsedMs: replay.elapsedMs,
         actions: replay.actions,
-        decisions: 0,
+        decisions: replay.reidentifyAsks,
         steps: replay.steps,
         finalSnapshot: replay.snapshot,
         ...(goal ? { goal } : {}),
@@ -472,9 +474,14 @@ export async function runGoal(
                 onStep: hooks.onStep,
                 onClockStart: hooks.onClockStart,
                 askUser: hooks.onUserAction,
+                // A control the page changed around is found again by the engine — as far as the engine
+                // may repair the replay at all (healing on, and usable).
+                reidentifier: heal ? new EngineReidentifier(engine, run.goal) : undefined,
             }).run(
                 recording
             );
+            // How the recording was carried out: as recorded, or with controls the engine found again.
+            const replayed: RunMode = replay.reidentified > 0 ? RunMode.REPLAY_REPAIRED : RunMode.REPLAY;
             let goal: GoalJudgement | undefined;
             if (replay.completed && goalJudge) {
                 // The last step may still be loading its page: re-judge a few times
@@ -514,7 +521,7 @@ export async function runGoal(
                 replay.steps.push(done);
                 hooks.onStep?.(done);
                 result = replayResult(replay, RunStatus.DONE, undefined, goal);
-                mode = RunMode.REPLAY;
+                mode = replayed;
             } else if (replay.completed && goal?.state === GoalState.FAILED) {
                 // The recording did its part and the app failed: nothing for the engine to heal.
                 const replayDone: StepEvent = {
@@ -533,7 +540,7 @@ export async function runGoal(
                 replay.steps.push(replayDone);
                 hooks.onStep?.(replayDone);
                 result = replayResult(replay, RunStatus.FAILED, replayDone.reason, goal);
-                mode = RunMode.REPLAY;
+                mode = replayed;
             } else {
                 divergence = replay.completed
                     ? `replayed every step, but the goal is not done yet (p=${goal!.probability.toFixed(2)})`
@@ -541,7 +548,7 @@ export async function runGoal(
                 if (replay.stopped) {
                     // "stop" at a recorded hand-over ends the run, as it does in an explored one.
                     result = replayResult(replay, RunStatus.CANCELLED, "stopped by the user", goal);
-                    mode = RunMode.REPLAY;
+                    mode = replayed;
                 } else if (!heal || signal?.aborted) {
                     result = replayResult(
                         replay,
@@ -549,7 +556,7 @@ export async function runGoal(
                         `replay diverged at ${divergence}${!health.ok ? ` (the engine could not take over: ${health.detail})` : ""}`,
                         goal
                     );
-                    mode = RunMode.REPLAY;
+                    mode = replayed;
                 } else {
                     if (replay.completed && goal) {
                         // Every step replayed and the goal judged not done: the healing engine is told so,
@@ -584,6 +591,7 @@ export async function runGoal(
                         ...rest,
                         // The agent's clock already continues from the replay's.
                         actions: replay.actions + rest.actions,
+                        decisions: replay.reidentifyAsks + rest.decisions,
                         steps: [...replay.steps, ...rest.steps],
                     };
                     mode = RunMode.REPLAY_HEALED;
@@ -708,8 +716,9 @@ export async function runGoal(
                 outcome.platform.reportError = reporter.failure;
             }
         }
-        // Cache what worked: a scenario's run explored or healed anew, for this prompt — and only one
-        // the review PASSED; a run nothing reviewed (the engine unreachable, the page unreadable) is not cached.
+        // Cache what worked: a scenario's run explored, repaired or healed anew, for this prompt — and only
+        // one the review PASSED; a run nothing reviewed (the engine unreachable, the page unreadable) is not
+        // cached. A repaired replay's steps carry the new descriptors of the controls the engine found again.
         const passed: boolean = out.analysis?.verdict === Verdict.PASSED;
         if (scenario && mode !== RunMode.REPLAY && passed) {
             const now: string = new Date().toISOString();
@@ -723,7 +732,7 @@ export async function runGoal(
                     engine: engine.label,
                     steps: recordSteps(result.steps),
                     elapsedMs: result.elapsedMs,
-                    ...(mode === RunMode.REPLAY_HEALED ? { healedAt: now } : {}),
+                    ...(mode === RunMode.REPLAY_HEALED || mode === RunMode.REPLAY_REPAIRED ? { healedAt: now } : {}),
                 },
             });
         }
