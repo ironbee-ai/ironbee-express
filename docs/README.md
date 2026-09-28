@@ -18,3 +18,13 @@ Start with the [README](../README.md) for an overview and the quick start.
 ## Contributing
 
 Before sending a change, run `npm run lint && npm test && npm run build`.
+
+The live test suites drive a real browser, and are skipped unless told which daemon to use:
+
+```bash
+# local test pages; starts the daemon that npm install brought
+IBEXPRESS_E2E_DAEMON_SCRIPT=node_modules/@ironbee-ai/devtools/dist/daemon-server.js npx jest tests/integration/control tests/integration/secrets
+
+# IronBee's e-shop demo, through a daemon already running at that address
+IBEXPRESS_E2E_DAEMON_URL=http://127.0.0.1:2099 npx jest tests/integration/eshop
+```

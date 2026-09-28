@@ -61,37 +61,60 @@ or a script: an action can only target a control, an option or a value that was 
 
 ## Quick start
 
-You need Node.js 22+, Google Chrome, and a [TypeSafe](https://docs.typesafe.ai/introduction) API key.
-The [IronBee DevTools](https://github.com/ironbee-ai/ironbee-devtools) daemon that owns the browser is
-a dependency: `npm install` brings it. You do not need a separate checkout of it.
+You need Node.js 22+, Google Chrome and a [TypeSafe](https://docs.typesafe.ai/introduction) API key.
 
 ```bash
+git clone https://github.com/ironbee-ai/ironbee-express.git
+cd ironbee-express
 npm install
-npm run build                       # the control tools the daemon loads live in dist/
-echo 'TYPESAFE_API_KEY=…' > .env     # in the directory you run from, not src/
+npm run build
+echo 'TYPESAFE_API_KEY=…' > .env
 ```
 
-Web UI, with a live view of every run:
+### Run an example in the web UI
 
 ```bash
 npm run dev -- ui
-# → http://127.0.0.1:15986  (load an example on the left, press Run)
+# → http://127.0.0.1:15986
 ```
 
-The daemon is started for you, from the `@ironbee-ai/devtools` in `node_modules`. Everything after
-`--` goes to the CLI, so `npm run dev -- ui --headed` shows the browser window.
+**Load** an example from the list on the left and press **Run**. You watch the browser as it works,
+then get the verdict and the evidence behind it. The e-shop examples sign in to IronBee's demo shop, so type its password,
+`demo123`, in the `password` row.
 
-Terminal, one run:
+### Or in the terminal
 
 ```bash
-ESHOP_PW=demo123 npm run dev -- run \
-  --url https://eshop.demo.ironbee.dev/ \
-  --goal 'Log in, add the "Sony WH-1000XM5" headphones to the cart, check out with shipping address "Maslak Mah. Buyukdere Cad. No:1, 34398 Istanbul" and card number "4242 4242 4242 4242", place the order, then open My Orders.' \
-  --value email=demo@example.com --password password=env:ESHOP_PW
+npm run dev -- run --scenario eshop-add-to-cart --password password=demo123
 ```
 
-This checkout is expected to fail: the page reports the order as placed, but the backend did not
-process it. Abridged output:
+```text
+  1 +0.32s ✓ CLICK [6] button "Login"  [p=0.97 decide 314ms act 1370ms]
+  2 +1.99s ✓ CLICK [13] button "Add to cart" (Electronics In stock iPhone 15 Pro 256GB, Titanium Blue, A1…)  [p=0.94 decide 292ms act 212ms]
+  3 +2.51s ✓ CLICK [8] button "shopping-cart Cart"  [p=0.97 decide 307ms act 206ms]
+  4 +3.02s · DONE  [p=1.00 decide 310ms]
+
+DONE in 3.78s — 3 actions, 4 decisions
+…
+PASSED — goal done; no problems found
+```
+
+`npm run dev -- <command>` runs the `ibexpress` CLI from the project folder; the docs write it as
+`ibexpress <command>`. Add `--headed` to watch the browser window.
+
+### Your own goal
+
+Give a start page, the goal in one sentence and the values it needs. On the demo shop, this checkout
+is meant to fail: the page says the order was placed, but the backend did not process it.
+
+```bash
+npm run dev -- run \
+  --url https://eshop.demo.ironbee.dev/ \
+  --goal 'Log in, add the "Sony WH-1000XM5" headphones to the cart, check out with shipping address "Maslak Mah. Buyukdere Cad. No:1, 34398 Istanbul" and card number "4242 4242 4242 4242", place the order, then open My Orders.' \
+  --value email=demo@example.com --password password=demo123
+```
+
+Abridged output:
 
 ```text
   5 +3.38s ✓ TYPE_TEXT [20] textbox "Full delivery address" ← "Maslak Mah. Buyukdere Cad. No:1, 34398 Istanbul"  [p=0.96 decide 317ms act 86ms]
@@ -107,9 +130,10 @@ goal failed (p=0.74) · 1 problem in 1 anomaly reviewed
   ✗✗ CRITICAL [log] frontend: [OrderDetailPage] order ended with status FAILED: 131
 ```
 
-The page says the order was placed. The order's API response and the notification service's log,
-read from the IronBee trace, show that it was not, so the goal check fails the run at DONE. The
-review then rates the frontend's log of the failed order as critical.
+The page says the order was placed, but the order's API response says it failed, so the run fails at
+DONE. That needs nothing but the engine key. With [IronBee](#ironbee-platform) connected, the review
+also reads the backend's logs. The last lines above come from there: they name the notification
+service's message and rate the frontend's log of the failed order as critical.
 
 > [!TIP]
 > Put the exact texts to type in quotes in the goal (`"Istanbul"`). Without a text model, Jev chooses
@@ -171,8 +195,9 @@ More: [scenarios](docs/scenarios.md).
 
 ## Examples
 
-Ready-to-run prompts ship in [`examples/scenarios/`](examples/scenarios). Load them in the UI or run
-`ibexpress run --scenario <name>`:
+Ready-to-run prompts ship in [`examples/scenarios/`](examples/scenarios). Load one in the UI and press
+**Run**, or run it from the terminal with `npm run dev -- run --scenario <name>`. The e-shop examples
+also need the demo password: `--password password=demo123`.
 
 | Example | Site | What it exercises |
 | --- | --- | --- |
@@ -227,31 +252,21 @@ own login; `--text-model provider/model`, or the UI's model picker. See [text an
 By default every run starts in a fresh browser: no cookies, no storage, no logins. Pick a saved
 profile instead (the UI's Browser picker, `--profile name`, or a scenario's `profile`) and its cookies,
 storage and logins stay between runs: sign in once and later runs start signed in. Profiles live in
-`.ibexpress/profiles/` (kept out of git, since they hold live sessions); `ibexpress profiles list | delete`. A
-profile needs a daemon IronBee Express starts itself, so it cannot be used with `--daemon-url`; runs in
-one profile affect each other (a cart, an open session), which is why the fresh browser is the default.
+`.ibexpress/profiles/` (kept out of git, since they hold live sessions); list or delete them with
+`npm run dev -- profiles list | delete`. Runs in one profile affect each other (a cart, an open
+session), which is why the fresh browser is the default.
 </details>
 
 <details>
 <summary><b>Dialogs, new tabs and iframes</b></summary>
 
 - **Native dialogs** (`alert` / `confirm` / `prompt`) are held for Jev to answer: the snapshot is the
-  dialog, so a "Delete this?" is confirmed or cancelled on purpose. On for a daemon IronBee Express
-  starts (`BROWSER_DIALOG_MODE=hold`); a `--daemon-url` daemon needs that variable itself.
+  dialog, so a "Delete this?" is confirmed or cancelled on purpose.
 - **New tabs** (`target=_blank`, `window.open`) are followed like a person would; Jev can also
-  `SWITCH_TAB` / `CLOSE_TAB`. A recording continues on each tab (one video per tab). On for a daemon
-  IronBee Express starts (`BROWSER_FOLLOW_NEW_TABS=true`); a `--daemon-url` daemon needs it itself.
+  `SWITCH_TAB` / `CLOSE_TAB`. A recording continues on each tab (one video per tab).
 - **Iframes** (an embedded payment or login form) with `IBEXPRESS_IFRAMES=true` (off by default). Their
   controls are offered like the page's, and the run's secrets (never a password) may be typed into
   the frames the *start site* embeds. Keep it off where the start site embeds content you don't trust.
-</details>
-
-<details>
-<summary><b>Choosing the engine</b></summary>
-
-The engine (`IBEXPRESS_ENGINE=jev`, the default and only one today) sits behind one `DecisionEngine`
-interface; requests are shaped by its profile (options per question, text budget, compact
-instructions), so another engine is an implementation plus a profile. See [configuration](docs/configuration.md#engine).
 </details>
 
 ## Documentation
@@ -268,6 +283,8 @@ Start at the [docs index](docs/README.md), or jump straight in:
 | [Text and secrets](docs/text-and-secrets.md) | values, secrets, text models and their providers, a text model taking over |
 | [Your turn](docs/web-ui.md#your-turn) | handing the browser to a person |
 | [IronBee](docs/ironbee.md) | reporting, the trace the review reads, connecting |
+
+Working on IronBee Express itself? See [contributing](docs/README.md#contributing).
 
 ## Troubleshooting
 
@@ -378,14 +395,6 @@ startup, so restart the UI after changing it.
 The goal needed more steps than a run allows: 60 actions and 120 decisions by default. Raise
 `IBEXPRESS_MAX_ACTIONS` and `IBEXPRESS_MAX_DECISIONS` in `.env`, or split the goal into smaller ones.
 </details>
-
-## Development
-
-```bash
-npm run lint && npm test && npm run build
-IBEXPRESS_E2E_DAEMON_URL=http://127.0.0.1:2099 IBEXPRESS_E2E_ENGINE=jev npx jest tests/integration/eshop   # live
-IBEXPRESS_E2E_DAEMON_SCRIPT=node_modules/@ironbee-ai/devtools/dist/daemon-server.js npx jest tests/integration/control tests/integration/secrets   # live, local pages
-```
 
 ## Limits
 

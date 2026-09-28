@@ -2,7 +2,7 @@
 
 IronBee Express ships a few ready-made scenarios in [`examples/scenarios/`](../examples/scenarios).
 Each one is a start URL, a goal and the values it needs. They appear in the UI's scenario list and in
-`ibexpress scenarios list`.
+`npm run dev -- scenarios list`.
 
 | Example | Site | What it does | Text model | Account |
 | --- | --- | --- | --- | --- |
@@ -24,8 +24,8 @@ In the UI, **Load** the example, type the password in the `password` row if it h
 **Run**. From the terminal:
 
 ```bash
-ibexpress run --scenario google-flights-round-trip
-ibexpress run --scenario eshop-add-to-cart --password password=demo123
+npm run dev -- run --scenario google-flights-round-trip
+npm run dev -- run --scenario eshop-add-to-cart --password password=demo123
 ```
 
 The e-shop password, `demo123`, is a public demo login that the e-shop's own login page shows. It is
