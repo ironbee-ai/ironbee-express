@@ -20,7 +20,8 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#examples">Examples</a> ·
-  <a href="#documentation">Docs</a>
+  <a href="#documentation">Docs</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
 </p>
 
 <p align="center">
@@ -60,31 +61,33 @@ or a script: an action can only target a control, an option or a value that was 
 
 ## Quick start
 
-You need Node.js 22+, a TypeSafe API key, and [IronBee DevTools](https://github.com/ironbee-ai/ironbee-devtools)
-checked out next to this repo.
+You need Node.js 22+, Google Chrome, and a [TypeSafe](https://docs.typesafe.ai/introduction) API key.
+The [IronBee DevTools](https://github.com/ironbee-ai/ironbee-devtools) daemon that owns the browser is
+a dependency: `npm install` brings it. You do not need a separate checkout of it.
 
 ```bash
 npm install
-(cd ../ironbee-devtools && npm run build)   # the DevTools daemon that owns the browser
-npm run build                               # includes the control tools the daemon loads
-echo 'TYPESAFE_API_KEY=…' > .env
+npm run build                       # the control tools the daemon loads live in dist/
+echo 'TYPESAFE_API_KEY=…' > .env     # in the directory you run from, not src/
 ```
 
 Web UI, with a live view of every run:
 
 ```bash
-npx ts-node src/cli/main.ts ui --daemon-script ../ironbee-devtools/dist/daemon-server.js
+npm run dev -- ui
 # → http://127.0.0.1:15986  (load an example on the left, press Run)
 ```
+
+The daemon is started for you, from the `@ironbee-ai/devtools` in `node_modules`. Everything after
+`--` goes to the CLI, so `npm run dev -- ui --headed` shows the browser window.
 
 Terminal, one run:
 
 ```bash
-ESHOP_PW=demo123 npx ts-node src/cli/main.ts run \
+ESHOP_PW=demo123 npm run dev -- run \
   --url https://eshop.demo.ironbee.dev/ \
   --goal 'Log in, add the "Sony WH-1000XM5" headphones to the cart, check out with shipping address "Maslak Mah. Buyukdere Cad. No:1, 34398 Istanbul" and card number "4242 4242 4242 4242", place the order, then open My Orders.' \
-  --value email=demo@example.com --password password=env:ESHOP_PW \
-  --daemon-script ../ironbee-devtools/dist/daemon-server.js
+  --value email=demo@example.com --password password=env:ESHOP_PW
 ```
 
 This checkout is expected to fail: the page reports the order as placed, but the backend did not
@@ -265,6 +268,39 @@ Start at the [docs index](docs/README.md), or jump straight in:
 | [Text and secrets](docs/text-and-secrets.md) | values, secrets, text models and their providers, a text model taking over |
 | [Your turn](docs/web-ui.md#your-turn) | handing the browser to a person |
 | [IronBee](docs/ironbee.md) | reporting, the trace the review reads, connecting |
+
+## Troubleshooting
+
+<details>
+<summary><b>The <code>Jev</code> pill is red, or a run stops with "is not usable"</b></summary>
+
+```text
+jev (jev-latest) is not usable: TYPESAFE_API_KEY / JEV_API_KEY is not set
+```
+
+The key was not read. `.env` is loaded from the **directory you run in**, so it belongs at the root of
+your checkout — `src/.env` is never read, and a missing file is ignored silently. It is read once at
+startup, so restart the UI after editing it. `export FOO=...` lines are fine. This check only reads the
+configuration; it does not call the API, so "API key configured" does not mean the key is valid.
+</details>
+
+<details>
+<summary><b><code>Unrecognized key(s) in object</code> from a tool call</b></summary>
+
+```text
+content_start-recording: Invalid Tool Request: input: Unrecognized key(s) in object: 'showActions'
+```
+
+The daemon is older than the `@ironbee-ai/devtools` this repo asks for, and rejects a parameter the
+agent sends. It happens when the daemon is not the one from `node_modules`: `--daemon-script`, or
+`IRONBEE_DEVTOOLS_DAEMON_SCRIPT`, pointing at an older checkout of DevTools. Drop both and let the CLI
+start its own. A healthy daemon already listening is reused, so stop the old one too:
+
+```bash
+pkill -f daemon-server.js
+npm run dev -- ui
+```
+</details>
 
 ## Development
 
