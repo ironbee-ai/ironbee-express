@@ -44,7 +44,7 @@ Jev is the only decision engine today (`IBEXPRESS_ENGINE=jev`, the default). It 
 
 ## CLI
 
-The command is `ibexpress`. From a checkout, run it as `npx ts-node src/cli/main.ts` or, after
+The command is `ibexpress`. From a checkout, run it as `npm run dev -- <command>` or, after
 `npm run build`, `node dist/cli/main.js`. Every command lists all of its flags with
 `ibexpress <command> --help`.
 

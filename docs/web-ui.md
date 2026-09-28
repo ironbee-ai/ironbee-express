@@ -4,7 +4,7 @@ The web UI runs a goal and shows it as it happens: a live view of the browser, e
 verdict with the evidence behind it.
 
 ```bash
-ibexpress ui --daemon-script ../ironbee-devtools/dist/daemon-server.js
+ibexpress ui          # from a checkout: npm run dev -- ui
 # IronBee Express UI: http://127.0.0.1:15986
 ```
 
