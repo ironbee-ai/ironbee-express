@@ -11,7 +11,8 @@ Each one is a start URL, a goal and the values it needs. They appear in the UI's
 | `ebay-keyboard` | eBay | a search, two filters, sorting, then the first listing | not needed | none |
 | `ikea-office-chair` | IKEA | a search, a color filter, sorting by price, then the first product's details | not needed | none |
 | `bbc-weather-next-day` | BBC Weather | a city search, its forecast, then the next day's | not needed | none |
-| `eshop-add-to-cart` | IronBee's e-shop demo | signs in, then picks the right product among many "Add to cart" buttons | not needed | demo login |
+| `eshop-add-to-cart` | IronBee's e-shop demo | signs in, adds all twelve products from across the page, opens the cart and removes four of them | not needed | demo login |
+| `eshop-checkout` | IronBee's e-shop demo | signs in, buys the iPhone 15 Pro with an address and a card, and waits until the order is completed | not needed | demo login |
 | `eshop-checkout-payment-bug` | IronBee's e-shop demo | a full checkout that is expected to FAIL: the page says the order was placed, but the backend did not process it | not needed | demo login |
 
 `google-maps-transit` needs a text model because the engine alone cannot get the departure time
@@ -32,13 +33,16 @@ The e-shop password, `demo123`, is a public demo login that the e-shop's own log
 still handled as a secret, so type it again after every **Load**.
 
 The first run of an example explores with the engine. When it passes, it is recorded, and later runs
-replay the recording in a second or two. Running never changes the example file. See
+replay the recording in a few seconds: `eshop-add-to-cart`'s 20 actions take about 12 s
+explored and 4 s replayed. Running never changes the example file. See
 [Scenarios](scenarios.md).
 
 ## Notes
 
 - `google-flights-round-trip` searches fixed dates in April 2027. Edit the goal once they have
   passed.
+- `eshop-checkout` places a real order on the shared demo, whose stock only goes down: once the
+  iPhone runs out there, the order fails for want of stock.
 - The e-shop examples need the demo site, `eshop.demo.ironbee.dev`, to be up. With IronBee
   connected, the review also reads the backend's logs, which is where the checkout's failure shows.
 - Sites like Google Flights change between visits, so a replay may not match. The engine then

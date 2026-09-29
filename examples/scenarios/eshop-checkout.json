@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "name": "eshop-checkout",
+  "description": "IronBee's e-shop demo: sign in, add the iPhone 15 Pro, check out with an address and a card, place the order and wait until it is completed. Password: demo123.",
+  "goal": "Log in, add the \"iPhone 15 Pro\" to the cart, check out with shipping address \"Maslak Mah. Buyukdere Cad. No:1, 34398 Istanbul\" and card number \"4242 4242 4242 4242\", place the order, and wait until the order is completed.",
+  "url": "https://eshop.demo.ironbee.dev/",
+  "values": {
+    "email": "demo@example.com"
+  },
+  "secretNames": [
+    "password"
+  ],
+  "passwordSecrets": [
+    "password"
+  ],
+  "descriptions": {
+    "email": "e-shop login email",
+    "password": "e-shop login password"
+  },
+  "createdAt": "2026-09-29T00:00:00.000Z",
+  "updatedAt": "2026-09-29T00:00:00.000Z"
+}

@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "name": "eshop-add-to-cart",
-  "description": "IronBee's e-shop demo: sign in, tell the right product apart among many \"Add to cart\" buttons. Password: demo123.",
-  "goal": "Log in, add the \"iPhone 15 Pro\" to the cart, then open the cart.",
+  "description": "IronBee's e-shop demo: sign in, add all twelve products from across the page, then open the cart and remove four of them. Password: demo123.",
+  "goal": "Log in and add these to the cart: the \"MacBook Pro\", the \"Sony WH-1000XM5\" headphones, the \"iPhone 15 Pro\", the \"Samsung 4K Smart TV\", the \"Nike Air Max 270\" shoes, the \"Levi's 501\" jeans, the \"Kindle Paperwhite\", the \"Instant Pot Duo\", the \"Dyson V15\" vacuum, \"The North Face\" jacket, the \"Apple Watch Series 9\" and the \"Patagonia Backpack\". Then open the cart and remove the Dyson vacuum, the North Face jacket, the Kindle and the Instant Pot.",
   "url": "https://eshop.demo.ironbee.dev/",
   "values": {
     "email": "demo@example.com"
@@ -18,5 +18,5 @@
     "password": "e-shop login password"
   },
   "createdAt": "2026-09-25T00:00:00.000Z",
-  "updatedAt": "2026-09-25T00:00:00.000Z"
+  "updatedAt": "2026-09-29T00:00:00.000Z"
 }

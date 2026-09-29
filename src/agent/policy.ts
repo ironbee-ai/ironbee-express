@@ -148,7 +148,13 @@ const USER_ACTION_DESCRIPTIONS: Partial<Record<UserActionKind, string>> = Object
     })
 );
 
-const RECENT_HISTORY: number = 10;
+/**
+ * Actions a step decision reads. A long goal's early parts must stay in it: DONE counts a part
+ * the recent actions already did, and a page scrolled to its end (a cart of nine) no longer shows
+ * them. With 10, a 15-step goal never chose DONE and started over. As many as the journey the goal
+ * judge reads (journey.ts).
+ */
+const RECENT_HISTORY: number = 30;
 /** Of each earlier page, in the decision state. */
 const EARLIER_PAGE_CHARS: number = 220;
 const COMPACT_RECENT_HISTORY: number = 5;

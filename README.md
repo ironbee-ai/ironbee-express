@@ -1,11 +1,10 @@
-<p align="center">
-  <img src="https://ironbee.ai/ironbee-logo.svg" alt="IronBee" width="120" height="120">
-</p>
+<img src="docs/assets/banner.svg" alt="IronBee Express: the fastest, cheapest browser agent, with deep reasoning when it matters. A run on IronBee's e-shop demo, one card per step: log in, add the iPhone 15 Pro, open the cart, check out, type the address and the card, place the order; the order is completed and the run passed. 9 actions in 6.7 s." width="100%">
 
 <h1 align="center">IronBee Express</h1>
 
 <p align="center">
-  <strong>A fast, goal-driven browser agent that also checks whether your app did what the page says it did.</strong>
+  <strong>The fastest, cheapest browser agent, with deep reasoning when it matters.</strong><br>
+  It checks whether your app really did what the page says, and when it didn't, finds the root cause.
 </p>
 
 <p align="center">
@@ -16,6 +15,17 @@
   <a href="https://github.com/ironbee-ai/ironbee-devtools"><img src="https://img.shields.io/badge/browser-IronBee%20DevTools-F5A623" alt="Browser: IronBee DevTools"></a>
 </p>
 
+> [!IMPORTANT]
+> **The IronBee Express waitlist is open.** Get early access to IronBee Express on the IronBee platform.
+> **[Join the waitlist →](https://ironbee.ai/express?utm_source=github&utm_medium=readme&utm_campaign=ironbee-express)**
+
+> [!NOTE]
+> **Made by [IronBee](https://ironbee.ai/?utm_source=github&utm_medium=readme&utm_campaign=ironbee-express), the verification and intelligence layer for AI coding agents.**
+> When an agent finishes a change, IronBee checks it at runtime, in the browser and in the backend,
+> and returns a clear verdict, pass or fail, with the evidence behind it. IronBee Express works without
+> it; connect IronBee and every run is kept with its video, and the backend's traces and logs join the
+> review. **[Try IronBee free →](https://ironbee.ai/?utm_source=github&utm_medium=readme&utm_campaign=ironbee-express)**
+
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
@@ -25,7 +35,8 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/ui-tabs.gif" alt="IronBee Express web UI after a failing e-shop checkout run, cycling through the Steps, Result, Requests, Traces and Logs tabs: the page says the order was placed, but the run fails because the requests and the backend show it was not processed" width="900">
+  <img src="docs/assets/demo.gif" alt="A real run on IronBee's e-shop demo at 1× speed: sign in, add the iPhone 15 Pro, open the cart, check out with an address and a card, place the order, and the order page turns to COMPLETED; 9 actions in 6.7 s. A second counter shows Jev's cost for the run, its review included, rising with the time to $0.00054" width="900">
+  <br><sub>A real run at 1× speed: from sign-in to a completed order, 9 actions in 6.7 s. Jev's cost for the run, its review included: $0.00054.</sub>
 </p>
 
 ---
@@ -43,11 +54,15 @@ or a script: an action can only target a control, an option or a value that was 
 
 ## Why IronBee Express
 
-- **Fast.** One engine request per step. Signing in and adding a product to the cart on IronBee's
-  e-shop demo takes about 3–4 s; replaying a recorded run takes 0.3–2 s and needs no engine at all.
-- **It reviews the whole run, not only the page.** If the page says "Order placed successfully!" while
-  the API returns `PAYMENT_FAILED`, the run fails. Failed requests, console errors, backend spans and
-  logs are reviewed against your goal.
+- **Fastest and cheapest.** There is no LLM in the loop by default. Each step is a single Jev choice
+  among the page's controls, about 300 ms, with no text generated and no screenshot sent. On IronBee's
+  e-shop demo, signing in, adding twelve products and removing four, 20 actions, takes about 12 s with
+  Jev deciding every step. A saved scenario replays with no step decisions at all: the same 20 actions
+  take about 4 s.
+- **It reviews the whole run and finds the root cause.** If the page says "Order placed successfully!"
+  while the API returns `PAYMENT_FAILED`, the run fails, and the review points at the response or the
+  backend log that shows why. Failed requests, console errors, backend spans and logs are reviewed
+  against your goal.
 - **Record once, replay.** A passing run of a scenario is cached and replayed without engine
   decisions. When the page changes, the engine continues from the step that no longer matches and the
   recording is updated.
@@ -56,8 +71,10 @@ or a script: an action can only target a control, an option or a value that was 
   page displays it.
 - **Hands over to a person when needed.** For a social login, a CAPTCHA or an SMS code, the run pauses,
   the UI shows "Your turn" over the live view, and the run continues from the page you leave it on.
-- **Optional text model.** A text model (Anthropic, OpenAI, OpenRouter, or the Claude Code / Codex CLI)
-  can write free text, and can take the controls for a few steps when the engine is stuck.
+- **Deep reasoning when it matters.** Add an LLM (Anthropic, OpenAI, OpenRouter, or the Claude Code /
+  Codex CLI) and it writes free text, takes the controls when the engine is stuck, and explains a
+  failed run in plain words: what went wrong and where, from the page, the API responses and the
+  backend's logs. The fast path stays LLM-free.
 
 ## Quick start
 
@@ -89,15 +106,26 @@ npm run dev -- run --scenario eshop-add-to-cart --password password=demo123
 ```
 
 ```text
-  1 +0.32s ✓ CLICK [6] button "Login"  [p=0.97 decide 314ms act 1370ms]
-  2 +1.99s ✓ CLICK [13] button "Add to cart" (Electronics In stock iPhone 15 Pro 256GB, Titanium Blue, A1…)  [p=0.94 decide 292ms act 212ms]
-  3 +2.51s ✓ CLICK [8] button "shopping-cart Cart"  [p=0.97 decide 307ms act 206ms]
-  4 +3.02s · DONE  [p=1.00 decide 310ms]
+  1 +0.77s ✓ CLICK [6] button "Login"  [p=0.97 decide 753ms act 1672ms]
+  2 +2.83s ✓ CLICK [11] button "Add to cart" (Electronics In stock MacBook Pro 14" Apple M3 Pro chip, 18G…)  [p=0.60 decide 393ms act 165ms]
+  3 +3.27s ✓ CLICK [12] button "Add to cart" (Electronics In stock Sony WH-1000XM5 Wireless Noise Cancell…)  [p=0.62 decide 275ms act 46ms]
+  …
+ 15 +7.50s ✓ CLICK [22] button "Add to cart" (Accessories In stock Patagonia Backpack 30L Recycled Polyes…)  [p=0.90 decide 333ms act 50ms]
+ 16 +7.85s ✓ CLICK [8] button "shopping-cart Cart"  [p=0.97 decide 295ms act 168ms]
+ 17 +8.32s ✓ CLICK [31] button "Remove" ($749.99)  [p=0.92 decide 301ms act 35ms]
+ 18 +8.64s ✓ CLICK [25] button "Remove" ($139.99)  [p=0.92 decide 287ms act 50ms]
+ 19 +8.96s ✓ CLICK [34] button "Remove" ($299.99)  [p=0.88 decide 275ms act 994ms]
+ 20 +10.24s ✓ CLICK [28] button "Remove" ($89.99)  [p=0.80 decide 278ms act 338ms]
+ 21 +10.88s · DONE  [p=0.80 decide 305ms]
 
-DONE in 3.78s — 3 actions, 4 decisions
+DONE in 11.69s — 20 actions, 21 decisions
 …
 PASSED — goal done; no problems found
 ```
+
+The goal: log in, add all twelve products from across the page, open the cart and remove four of them.
+The first run explores with Jev and records how it was done. Run it again and it replays that
+recording in about 4 s, with no engine decisions.
 
 `npm run dev -- <command>` runs the `ibexpress` CLI from the project folder; the docs write it as
 `ibexpress <command>`. Add `--headed` to watch the browser window.
@@ -182,6 +210,10 @@ flowchart LR
   your goal. No text is matched against keywords. With IronBee connected, spans and logs from every
   backend service join in.
 
+<p align="center">
+  <img src="docs/assets/ui-tabs.gif" alt="IronBee Express web UI after a failing e-shop checkout run, cycling through the Steps, Result, Requests, Traces and Logs tabs: the page says the order was placed, but the run fails because the requests and the backend show it was not processed" width="900">
+</p>
+
 More: [review](docs/review.md).
 
 ## Record once, replay without the engine
@@ -206,7 +238,8 @@ also need the demo password: `--password password=demo123`.
 | `ebay-keyboard` | eBay | search, two filters, sorting, the first listing |
 | `ikea-office-chair` | IKEA | search, a color filter, sort by price, product details |
 | `bbc-weather-next-day` | BBC Weather | a city search, its forecast, the next day |
-| `eshop-add-to-cart` | IronBee e-shop demo | sign in with a secret; the right "Add to cart" among many |
+| `eshop-add-to-cart` | IronBee e-shop demo | sign in with a secret, add twelve products, remove four: 20 actions, about 12 s explored, about 4 s replayed |
+| `eshop-checkout` | IronBee e-shop demo | sign in, buy the iPhone 15 Pro with an address and a card, wait until the order is completed: 9 actions, about 6.7 s; places a real order |
 | `eshop-checkout-payment-bug` | IronBee e-shop demo | a full checkout; expected to fail (the page reports success, the backend does not) |
 
 Timings, notes and how recordings are kept: [examples](docs/examples.md).
@@ -218,6 +251,8 @@ calls, video), and the run's distributed trace, from the browser through every b
 read back into the review. A failed run lists the backend logs behind it. Nothing to configure: press
 **Connect IronBee** in the UI (sign in or sign up, free), or reuse the login of the IronBee CLI or editor
 extension. Without IronBee everything still runs; runs are just not reported.
+
+To use IronBee Express on the IronBee platform itself, [join the waitlist](https://ironbee.ai/express?utm_source=github&utm_medium=readme&utm_campaign=ironbee-express).
 
 More: [IronBee](docs/ironbee.md).
 

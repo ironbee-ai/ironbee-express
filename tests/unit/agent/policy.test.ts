@@ -211,6 +211,33 @@ describe("a note-only history entry (the controls handed back)", (): void => {
     });
 });
 
+describe("the actions a step decision reads", (): void => {
+    const added: (step: number) => HistoryEntry = (step: number): HistoryEntry => ({
+        step,
+        operation: Operation.CLICK,
+        target: `[${step}] button "Add to cart" (Product ${step})`,
+        executed: true,
+        pageChanged: false,
+    });
+
+    it("keep a long goal's early parts: the first product added is still there fifteen steps later", (): void => {
+        // DONE counts what the recent actions already did; a cart scrolled to its end no longer shows the first items.
+        const history: HistoryEntry[] = Array.from({ length: 16 }, (_: unknown, i: number): HistoryEntry => added(i + 1));
+        const full: Array<Record<string, unknown>> = buildRequest(input({ history }), JEV_PROFILE).state.recent_actions as Array<Record<string, unknown>>;
+        expect(full).toHaveLength(16);
+        expect(full[0]).toMatchObject({ step: 1, target: '[1] button "Add to cart" (Product 1)' });
+    });
+
+    it("are the latest 30, and a compact engine's latest 5", (): void => {
+        const history: HistoryEntry[] = Array.from({ length: 45 }, (_: unknown, i: number): HistoryEntry => added(i + 1));
+        const full: Array<Record<string, unknown>> = buildRequest(input({ history }), JEV_PROFILE).state.recent_actions as Array<Record<string, unknown>>;
+        expect(full.map((h): unknown => h.step)).toEqual(Array.from({ length: 30 }, (_: unknown, i: number): number => i + 16));
+        const compact: string[] = buildRequest(input({ history }), COMPACT_PROFILE).state.recent_actions as string[];
+        expect(compact).toHaveLength(5);
+        expect(compact[4]).toContain("Product 45");
+    });
+});
+
 describe("WAITs that changed nothing", (): void => {
     const wait: (step: number, pageChanged: boolean) => { step: number; operation: Operation; executed: boolean; pageChanged: boolean } = (
         step: number,

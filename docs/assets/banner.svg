@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="460" viewBox="0 0 1400 460">
+<defs>
+<radialGradient id="glow" cx="700" cy="300" r="640" gradientUnits="userSpaceOnUse"><stop stop-color="#e2e8f0" stop-opacity=".09"/><stop offset="1" stop-color="#e2e8f0" stop-opacity="0"/></radialGradient>
+<linearGradient id="axis" x1="72" y1="0" x2="1130" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#e2e8f0" stop-opacity=".15"/><stop offset="1" stop-color="#e2e8f0" stop-opacity=".6"/></linearGradient>
+<linearGradient id="l0" x1="248.978" y1="84" x2="248.978" y2="416" gradientUnits="userSpaceOnUse"><stop stop-color="#E5E5E5"/><stop offset="1" stop-color="#272F39"/></linearGradient>
+<linearGradient id="l2" x1="250.032" y1="171.12" x2="250.032" y2="369.749" gradientUnits="userSpaceOnUse"><stop stop-color="#D9D9D9"/><stop offset="1" stop-color="#272F39"/></linearGradient>
+<linearGradient id="l4" x1="250.351" y1="240.771" x2="250.351" y2="313.609" gradientUnits="userSpaceOnUse"><stop stop-color="#D9D9D9"/><stop offset="1" stop-color="#272F39"/></linearGradient>
+<linearGradient id="l5" x1="250.05" y1="125.638" x2="250.05" y2="201.881" gradientUnits="userSpaceOnUse"><stop stop-color="#B1B1B2"/><stop offset="1" stop-color="#343B43"/></linearGradient>
+<linearGradient id="l6" x1="315.879" y1="132.019" x2="318.569" y2="284.812" gradientUnits="userSpaceOnUse"><stop stop-color="#D9D9D9"/><stop offset="1" stop-color="#454B54"/></linearGradient>
+<linearGradient id="l7" x1="184.387" y1="132.019" x2="181.698" y2="284.812" gradientUnits="userSpaceOnUse"><stop stop-color="#D9D9D9"/><stop offset="1" stop-color="#454B54"/></linearGradient>
+<linearGradient id="l8" x1="380.834" y1="132.773" x2="383.683" y2="294.632" gradientUnits="userSpaceOnUse"><stop stop-color="#D9D9D9"/><stop offset="1" stop-color="#4A5159"/></linearGradient>
+<linearGradient id="l9" x1="119.433" y1="132.773" x2="116.583" y2="294.632" gradientUnits="userSpaceOnUse"><stop stop-color="#D9D9D9"/><stop offset="1" stop-color="#4A5159"/></linearGradient>
+</defs>
+<rect width="1400" height="460" rx="24" fill="#0b0b0e"/>
+<rect width="1400" height="460" rx="24" fill="url(#glow)"/>
+<rect x=".5" y=".5" width="1399" height="459" rx="23.5" fill="none" stroke="#fff" stroke-opacity=".08"/>
+
+<g transform="translate(54 34) scale(.15)">
+<path d="M217.557 138.711C211.185 166.725 218.839 188.038 224.039 201.771L249.307 154.531L275.674 201.771C285.561 179.579 286.328 161.013 281.167 135.964C277.431 117.837 259.744 95.3889 249.307 84C241.91 92.6058 222.355 117.618 217.557 138.711Z" fill="url(#l0)"/>
+<path d="M249.527 416C223.951 394.731 206.425 358.067 202.396 343.052L249.527 381.394L272.378 362.937L295.559 343.052C290.988 371.089 262.417 403.805 249.527 416Z" fill="url(#l0)"/>
+<path d="M220.854 231.434L250.077 171.12L279.629 231.434L250.077 256.153L220.854 231.434Z" fill="url(#l2)"/>
+<path d="M298.525 286.804C302.568 301.218 299.258 322.399 297.097 331.188L273.587 350.303L249.857 369.749L225.907 349.754L202.397 331.188C197.387 320.465 200.31 297.131 202.397 286.804L249.857 324.486L298.525 286.804Z" fill="url(#l2)"/>
+<path d="M249.856 313.609L203.495 275.268C203.495 263.315 211.552 247.29 215.58 240.771L249.856 267.028L284.573 240.771C291.955 248.066 296.071 266.809 297.207 275.268L249.856 313.609Z" fill="url(#l4)"/>
+<path d="M215.909 165.298C215.36 179.579 220.853 193.752 224.039 201.771L236.563 178.481L249.307 154.531L275.674 201.881C280.947 190.785 284.902 174.526 284.133 167.275C281.277 147.061 274.136 138.052 264.138 125.638C255.679 132.01 244.847 132.141 235.355 125.638C223.38 137.613 216.568 156.289 215.909 165.298Z" fill="url(#l5)" fill-opacity=".7"/>
+<path d="M249.856 347.996L202.396 286.804L249.856 324.486L298.525 286.804L249.856 347.996Z" fill="#333941" fill-opacity=".64"/>
+<path d="M249.527 292.296L215.58 240.771L249.857 267.028L284.573 240.771L249.527 292.296Z" fill="#333941" fill-opacity=".35"/>
+<path d="M285.482 209.139C297.06 183.136 300.205 166.929 294.24 132.4L346.304 224.989L319.38 218.541L350.314 284.253C319.826 267.918 305.852 251.479 285.482 209.139Z" fill="url(#l6)"/>
+<path d="M214.785 209.139C203.206 183.136 200.062 166.929 206.027 132.4L153.963 224.989L180.887 218.541L149.953 284.253C180.44 267.918 194.414 251.479 214.785 209.139Z" fill="url(#l7)"/>
+<path d="M458.055 281.287L306.25 134.086L375.851 242.958L344.516 235.599L359.745 289.281C390.46 298.849 431.254 294.285 458.055 281.287Z" fill="url(#l8)"/>
+<path d="M42.2112 281.287L194.017 134.086L124.415 242.958L155.75 235.599L140.521 289.281C109.807 298.849 69.0124 294.285 42.2112 281.287Z" fill="url(#l9)"/>
+</g>
+
+<g font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif">
+<text x="138" y="100" font-size="56" font-weight="700" letter-spacing="-1" fill="#f0f4f8">IronBee Express</text>
+<text x="140" y="140" font-size="24" fill="#8090a0">The fastest, cheapest browser agent, <tspan fill="#e2e8f0">with deep reasoning when it matters.</tspan></text>
+</g>
+<text x="1340" y="84" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="15" letter-spacing="3" text-anchor="end" fill="#8090a0">DECIDE · ACT · VERIFY</text>
+
+<rect x="71" y="184" width="138" height="176" rx="14" fill="#121217" stroke="#262b33" stroke-width="1"/>
+<rect x="102.0" y="218" width="76" height="60" rx="7" fill="#1b1b22" stroke="#2e343d"/>
+<rect x="111.0" y="227" width="58" height="11" rx="3" fill="#2a2f38"/><rect x="111.0" y="243" width="58" height="11" rx="3" fill="#2a2f38"/>
+<g fill="#8090a0"><circle cx="118.0" cy="248.5" r="1.6"/><circle cx="123.0" cy="248.5" r="1.6"/><circle cx="128.0" cy="248.5" r="1.6"/><circle cx="133.0" cy="248.5" r="1.6"/></g>
+<rect x="111.0" y="259" width="58" height="12" rx="4" fill="#e2e8f0"/>
+<text x="140.0" y="322" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="600" fill="#e2e8f0" text-anchor="middle">Log in</text>
+<text x="140.0" y="343" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#8090a0" text-anchor="middle">demo account</text>
+<path d="M213 248H227M223 244l4 4-4 4" fill="none" stroke="#4a5568" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="231" y="184" width="138" height="176" rx="14" fill="#121217" stroke="#262b33" stroke-width="1"/>
+<rect x="283.0" y="217" width="34" height="62" rx="8" fill="#1b1b22" stroke="#e2e8f0" stroke-width="1.6"/>
+<rect x="288.0" y="224" width="24" height="46" rx="3" fill="#2a2f38"/><rect x="295.0" y="220" width="10" height="2.5" rx="1.2" fill="#8090a0"/>
+<circle cx="319.0" cy="225" r="11" fill="#22c55e"/><path d="M314.0 225h10M319.0 220v10" stroke="#052e16" stroke-width="2.6" stroke-linecap="round"/>
+<text x="300.0" y="322" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="600" fill="#e2e8f0" text-anchor="middle">Add iPhone</text>
+<text x="300.0" y="343" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#8090a0" text-anchor="middle">$1199.00</text>
+<path d="M373 248H387M383 244l4 4-4 4" fill="none" stroke="#4a5568" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="391" y="184" width="138" height="176" rx="14" fill="#121217" stroke="#262b33" stroke-width="1"/>
+<path d="M434.0 232h8l6 24h24l6-18h-33" fill="none" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="452.0" cy="264" r="3.4" fill="#e2e8f0"/><circle cx="470.0" cy="264" r="3.4" fill="#e2e8f0"/>
+<circle cx="482.0" cy="226" r="10" fill="#22c55e"/><text x="482.0" y="230.5" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="13" font-weight="700" fill="#052e16" text-anchor="middle">1</text>
+<text x="460.0" y="322" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="600" fill="#e2e8f0" text-anchor="middle">Open cart</text>
+<text x="460.0" y="343" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#8090a0" text-anchor="middle">1 item</text>
+<path d="M533 248H547M543 244l4 4-4 4" fill="none" stroke="#4a5568" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="551" y="184" width="138" height="176" rx="14" fill="#121217" stroke="#262b33" stroke-width="1"/>
+<rect x="610.0" y="218" width="20" height="16" rx="3" fill="none" stroke="#8090a0" stroke-width="2"/><path d="M614.0 218v-4a6 6 0 0 1 12 0v4" fill="none" stroke="#8090a0" stroke-width="2"/>
+<rect x="576.0" y="244" width="88" height="26" rx="13" fill="#e2e8f0"/>
+<text x="620.0" y="261" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" font-weight="700" fill="#0b0b0e" text-anchor="middle">Checkout →</text>
+<text x="620.0" y="322" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="600" fill="#e2e8f0" text-anchor="middle">Checkout</text>
+<text x="620.0" y="343" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#8090a0" text-anchor="middle">secure</text>
+<path d="M693 248H707M703 244l4 4-4 4" fill="none" stroke="#4a5568" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="711" y="184" width="138" height="176" rx="14" fill="#121217" stroke="#262b33" stroke-width="1"/>
+<path d="M780.0 256c-9-11-14-18-14-25a14 14 0 0 1 28 0c0 7-5 14-14 25z" fill="#1b1b22" stroke="#e2e8f0" stroke-width="2"/>
+<circle cx="780.0" cy="231" r="5" fill="#22c55e"/>
+<text x="780.0" y="276" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#8090a0" text-anchor="middle">Maslak, Istanbul</text>
+<text x="780.0" y="322" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="600" fill="#e2e8f0" text-anchor="middle">Address</text>
+<text x="780.0" y="343" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#8090a0" text-anchor="middle">typed</text>
+<path d="M853 248H867M863 244l4 4-4 4" fill="none" stroke="#4a5568" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="871" y="184" width="138" height="176" rx="14" fill="#121217" stroke="#262b33" stroke-width="1"/>
+<rect x="900.0" y="223" width="80" height="50" rx="7" fill="#1e293b" stroke="#475569"/>
+<rect x="908.0" y="232" width="14" height="10" rx="2" fill="#cbd5e1"/><path d="M908.0 237h14M915.0 232v10" stroke="#94a3b8" stroke-width="1"/>
+<text x="908.0" y="263" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#e2e8f0">•••• 4242</text>
+<text x="940.0" y="322" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="600" fill="#e2e8f0" text-anchor="middle">Card</text>
+<text x="940.0" y="343" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#8090a0" text-anchor="middle">typed</text>
+<path d="M1013 248H1027M1023 244l4 4-4 4" fill="none" stroke="#4a5568" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1031" y="184" width="138" height="176" rx="14" fill="#121217" stroke="#262b33" stroke-width="1"/>
+<rect x="1056.0" y="233" width="88" height="30" rx="15" fill="#22c55e"/>
+<text x="1100.0" y="253" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="14" font-weight="700" fill="#052e16" text-anchor="middle">$959.20</text>
+<path d="M1114.0 258l7 18 3-7 7-3z" fill="#e2e8f0" stroke="#0b0b0e" stroke-width="1.5" stroke-linejoin="round"/>
+<text x="1100.0" y="322" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="600" fill="#e2e8f0" text-anchor="middle">Place order</text>
+<text x="1100.0" y="343" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#8090a0" text-anchor="middle">20% off</text>
+<path d="M1173 248H1187M1183 244l4 4-4 4" fill="none" stroke="#4a5568" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="1191" y="184" width="138" height="176" rx="14" fill="#07120b" stroke="#22c55e" stroke-width="2"/>
+<circle cx="1260.0" cy="242" r="24" fill="#052e16" stroke="#22c55e" stroke-width="2.5"/>
+<path d="M1249.0 242l7 8 15-16" fill="none" stroke="#22c55e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1260.0" y="280" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11" fill="#22c55e" text-anchor="middle">order #164</text>
+<text x="1260.0" y="322" font-family="Geist,Inter,'Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif" font-size="16" font-weight="600" fill="#22c55e" text-anchor="middle">Completed</text>
+<text x="1260.0" y="343" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#22c55e" text-anchor="middle">PASSED</text>
+
+<text x="71" y="414" font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="24" fill="#f0f4f8">9 actions · 6.7 s <tspan font-size="16" fill="#8090a0">on IronBee's e-shop demo, from sign-in to a completed order</tspan></text>
+</svg>
