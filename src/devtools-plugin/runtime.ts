@@ -703,29 +703,6 @@ export function controlRuntime(req: RuntimeRequest): unknown {
                 return { error: "the option is not available" };
             }
         }
-        let p: { x: number; y: number; ok: boolean } = center(target);
-        if (!p.ok) {return { error: "the element is outside the viewport" };}
-        if (!clickReaches(target, hitAt(target, p.x, p.y))) {
-            // Inside a scrolled list (a language picker, a dropdown's options)
-            // the target can sit past the list's visible part: in the
-            // viewport, yet clipped. A person scrolls the list first; so does
-            // this — only when the click would miss (a menu drawn outside a
-            // scrolled panel is not in it, and scrolling the panel may close
-            // it), and back again when the click still cannot go ahead.
-            const restore: () => void = revealInScrollers(target);
-            p = center(target);
-            if (!p.ok) {
-                restore();
-                return { error: "the element is outside the viewport" };
-            }
-            if (!clickReaches(target, hitAt(target, p.x, p.y))) {
-                restore();
-                return { error: "the element is covered by another element" };
-            }
-            // A check outside this document (the page over this frame) may
-            // still refuse the click: it can put the list back (`unscroll`).
-            if (req.keepUnscroll) {c.unscroll = restore;}
-        }
         // A link whose target names a new browsing context: the tab it opens
         // arrives some milliseconds after the click, so the caller waits for it.
         const link: Element | null = e.closest("a[href], area[href]");
@@ -736,7 +713,50 @@ export function controlRuntime(req: RuntimeRequest): unknown {
             req.kind === "click" &&
             linkTarget !== "" &&
             !["_self", "_top", "_parent"].includes(linkTarget);
-        return opensTab ? { x: p.x, y: p.y, opensTab } : { x: p.x, y: p.y };
+        const located: (at: { x: number; y: number }) => RuntimeLocateResult = (
+            at: { x: number; y: number }
+        ): RuntimeLocateResult =>
+            opensTab ? { x: at.x, y: at.y, opensTab } : { x: at.x, y: at.y };
+        const p: { x: number; y: number; ok: boolean } = center(target);
+        if (!p.ok) {return { error: "the element is outside the viewport" };}
+        if (clickReaches(target, hitAt(target, p.x, p.y))) {return located(p);}
+        // Inside a scrolled list (a language picker, a dropdown's options)
+        // the target can sit past the list's visible part: in the viewport,
+        // yet clipped. A person scrolls the list first; so does this — only
+        // when the click would miss (a menu drawn outside a scrolled panel is
+        // not in it, and scrolling the panel may close it), and back again
+        // when the click still cannot go ahead.
+        const restore: () => void = revealInScrollers(target);
+        // What the page does as its list scrolls — a row loaded on demand, a
+        // header that sticks, an overlay — shows after the scroll event, at
+        // the next frame: the click is decided on that, not on the moment of
+        // the scroll. Two frames, capped (a page in the background draws none).
+        return new Promise((resolve: (v: RuntimeLocateResult) => void): void => {
+            let decided: boolean = false;
+            const decide: () => void = (): void => {
+                if (decided) {return;}
+                decided = true;
+                const q: { x: number; y: number; ok: boolean } = center(target);
+                if (!q.ok) {
+                    restore();
+                    resolve({ error: "the element is outside the viewport" });
+                    return;
+                }
+                if (!clickReaches(target, hitAt(target, q.x, q.y))) {
+                    restore();
+                    resolve({ error: "the element is covered by another element" });
+                    return;
+                }
+                // A check outside this document (the page over this frame) may
+                // still refuse the click: it can put the list back (`unscroll`).
+                if (req.keepUnscroll) {c.unscroll = restore;}
+                resolve(located(q));
+            };
+            requestAnimationFrame((): void => {
+                requestAnimationFrame(decide);
+            });
+            setTimeout(decide, 100);
+        });
     }
 
     if (req.op === "settle") {

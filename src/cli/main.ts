@@ -17,12 +17,13 @@ import { AskUser, RescueEvent, RescueState, RunStatus, StepEvent, StepMode, User
 import { TakeoverEnd } from "../agent/rescue";
 import { FastConfig, loadConfig, loadDotEnv, parseEnumList } from "../config/config";
 import { DevtoolsClient } from "../devtools/client";
-import { DaemonHandle, ensureDaemon, freePort } from "../devtools/daemon";
+import { DaemonHandle, ensureDaemon, freePort, stealthEnv } from "../devtools/daemon";
 import { daemonEnvFor } from "../ironbee/config";
 import { TraceReport } from "../ironbee/trace";
 import { profileEnv, ProfileStore, ProfileSummary } from "../profile/profiles";
-import { effectiveProfile, RunOutcome, runGoal, RunSpec } from "../run/runner";
+import { effectiveProfile, effectiveStealth, RunOutcome, runGoal, RunSpec } from "../run/runner";
 import { CacheSummary, RecordingCache } from "../scenario/cache";
+import { Scenario } from "../scenario/types";
 import { ScenarioStore, ScenarioSummary } from "../scenario/store";
 import { startUiServer, UiServerHandle } from "../server/ui-server";
 import { CandidateKind, validateValueName } from "../text/types";
@@ -40,6 +41,7 @@ interface RunOptions {
     password: string[];
     valueDesc: string[];
     profile?: string;
+    stealth?: boolean;
     showLogs?: boolean;
     textModel?: string;
     textCandidates?: string;
@@ -169,31 +171,41 @@ async function runCommand(options: RunOptions): Promise<number> {
     }
     const config: FastConfig = loadConfig();
     // `none` = a fresh browser even when the scenario names a profile.
-    const spec: RunSpec = options.profile === undefined ? {} : { profile: options.profile === "none" ? "" : options.profile };
-    const profile: string | undefined = effectiveProfile(
-        spec,
-        options.scenario ? new ScenarioStore(config.scenarioDir).get(options.scenario) : undefined
-    );
+    const spec: RunSpec = {
+        ...(options.profile === undefined ? {} : { profile: options.profile === "none" ? "" : options.profile }),
+        ...(options.stealth ? { stealth: true } : {}),
+    };
+    const loaded: Scenario | undefined = options.scenario ? new ScenarioStore(config.scenarioDir).get(options.scenario) : undefined;
+    const profile: string | undefined = effectiveProfile(spec, loaded);
+    const stealth: boolean = effectiveStealth(spec, loaded, config.daemon.stealth);
     const daemonUrl: string | undefined = options.daemonUrl ?? config.daemon.url;
     if (profile && daemonUrl) {
         throw new Error(`The browser profile ${profile} needs a daemon IronBee Express starts itself (drop --daemon-url)`);
     }
-    // A profile is fixed when a daemon starts, so a run in one gets a daemon of its own, on a port
-    // of its own: an explicit --port would name a daemon it does not use.
+    if (stealth && daemonUrl) {
+        throw new Error("The stealth browser needs a daemon IronBee Express starts itself (drop --daemon-url)");
+    }
+    // A profile and the stealth browser are fixed when a daemon starts, so such a run gets a daemon
+    // of its own, on a port of its own: an explicit --port would name a daemon it does not use (and
+    // the daemon found on the default port is a normal one).
     const port: number = portFlag(options.port, config.daemon.port);
     if (profile && options.port !== undefined) {
         throw new Error("--port is not used with --profile: a profile's daemon gets a port of its own");
     }
+    if (stealth && options.port !== undefined) {
+        throw new Error("--port is not used with --stealth: the stealth browser's daemon gets a port of its own");
+    }
     // Checked (and revived when local) before every run: an idle daemon exits by itself.
     const daemon: DaemonHandle = await ensureDaemon({
         url: daemonUrl,
-        port: profile ? await freePort() : port,
+        port: profile || stealth ? await freePort() : port,
         headless: !options.headed && config.daemon.headless,
         daemonScript: options.daemonScript ?? config.daemon.script,
         env: {
             ...daemonEnvFor(config.ironbee),
             ...(config.daemon.iframes ? { BROWSER_CONTROL_SNAPSHOT_FRAMES: "true" } : {}),
             ...(profile ? profileEnv(new ProfileStore(config.profileDir).ensure(profile)) : {}),
+            ...(stealth ? stealthEnv() : {}),
         },
     });
     const client: DevtoolsClient = createDevtoolsClient({ baseUrl: daemon.baseUrl, internalToken: daemon.internalToken });
@@ -256,6 +268,8 @@ async function runCommand(options: RunOptions): Promise<number> {
                     scenario: outcome.scenario,
                     recordingSaved: outcome.recordingSaved,
                     profile: outcome.profile,
+                    stealth: outcome.stealth,
+                    botCheck: outcome.botCheck,
                     engine: outcome.engine,
                     generator: outcome.generator,
                     videoPath: outcome.videoPath,
@@ -381,6 +395,10 @@ export function buildProgram(): Command {
             )
             .option("--value-desc <name=text>", "what a --value / --secret is for, so the engine matches it to the right field", collect, [])
             .option("--profile <name>", "run in this saved browser profile (cookies, storage and logins kept between runs); none = a fresh browser")
+            .option(
+                "--stealth",
+                "the stealth browser, for a site whose bot protection refuses the normal one (no console messages captured)"
+            )
             .option("--show-logs", "print every log record of the run's IronBee trace", false)
             .option(
                 "--text-model <provider/model>",

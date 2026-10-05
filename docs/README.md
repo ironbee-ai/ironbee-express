@@ -14,6 +14,7 @@ Start with the [README](../README.md) for an overview and the quick start.
 - [Review](review.md): how a run is judged and what PASSED and FAILED mean
 - [Scenarios](scenarios.md): saving a prompt, replaying it and clearing its recordings
 - [IronBee](ironbee.md): connecting to the IronBee platform and what it adds
+- [Web Bot Auth](web-bot-auth.md): registering IronBee's hosted agent with the bot-protection vendors
 
 ## Contributing
 

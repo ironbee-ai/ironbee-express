@@ -1,7 +1,8 @@
 # Scenarios
 
 A scenario is a saved prompt: the start URL, the goal, your values, the names of your secrets (and
-which are passwords), the text model setting and the browser profile. When a run of a scenario
+which are passwords), the text model setting, the browser profile and whether it needs the stealth
+browser. When a run of a scenario
 passes, IronBee Express records how it was done. The next run replays that recording without asking
 the engine for each step, which is much faster.
 

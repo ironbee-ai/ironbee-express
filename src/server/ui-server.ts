@@ -23,11 +23,12 @@ import { AskUser, RescueEvent, RunResult, StepEvent, UserActionRequest } from ".
 import { CapturedRequest } from "../verify";
 import { FastConfig } from "../config/config";
 import { DevtoolsClient } from "../devtools/client";
-import { DaemonHandle, ensureDaemon, freePort, isDaemonHealthy } from "../devtools/daemon";
+import { DaemonHandle, ensureDaemon, freePort, isDaemonHealthy, stealthEnv } from "../devtools/daemon";
 import { profileEnv, ProfileStore, validateProfileName } from "../profile/profiles";
 import { createEngine } from "../engine";
 import { EngineHealth } from "../engine/types";
-import { effectiveProfile, RunOutcome, RunPhase, RunReview, runGoal, RunSpec } from "../run/runner";
+import { BotCheck } from "../run/bot-check";
+import { effectiveProfile, effectiveStealth, RunOutcome, RunPhase, RunReview, runGoal, RunSpec } from "../run/runner";
 import {
     formatTextModel,
     listTextModels,
@@ -117,6 +118,10 @@ interface RunRecord {
     userActionSince?: number;
     /** The saved browser profile it runs in; absent = fresh. */
     profile?: string;
+    /** It runs in the stealth browser. */
+    stealth?: boolean;
+    /** Its last page was a bot-protection vendor's challenge or block. */
+    botCheck?: BotCheck;
 }
 
 interface RunRequestBody {
@@ -130,6 +135,8 @@ interface RunRequestBody {
     explore?: unknown;
     /** A saved browser profile's name; "" = a fresh browser. */
     profile?: unknown;
+    /** The stealth browser for this run (true / false); absent = the scenario's, else the configured default. */
+    stealth?: unknown;
     /** Saving the form: replace a scenario of that name (asked first in the UI). */
     overwrite?: unknown;
 }
@@ -405,6 +412,7 @@ export function parseRunRequest(body: RunRequestBody): RunSpec {
         passwords,
         valueDescriptions,
         ...(typeof body.profile === "string" ? { profile: body.profile.trim() ? validateProfileName(body.profile) : "" } : {}),
+        ...(typeof body.stealth === "boolean" ? { stealth: body.stealth } : {}),
         // "none" = no text model for this run; a malformed name is refused (parseTextModel throws).
         textModel:
             typeof body.textModel === "string" && body.textModel.trim()
@@ -447,6 +455,7 @@ export function saveScenarioDefinition(store: ScenarioStore, name: string, body:
         textCandidates: spec.textCandidates,
         textModel: spec.textModel,
         ...(spec.profile ? { profile: spec.profile } : {}),
+        ...(spec.stealth ? { stealth: true } : {}),
         createdAt: base?.createdAt ?? now,
         updatedAt: now,
     });
@@ -469,16 +478,21 @@ export async function startUiServer(config: FastConfig): Promise<UiServerHandle>
     // profile (or fresh after one) gets a new daemon.
     let daemon: DaemonHandle | undefined;
     let daemonProfile: string | undefined;
+    let daemonStealth: boolean = false;
     /** The IronBee environment the daemon was started with: a connect or sign-out needs a new one. */
     let daemonIronBee: string | undefined;
     const liveView: boolean = !config.daemon.url;
     const profiles: ProfileStore = new ProfileStore(config.profileDir);
-    const ensureRunDaemon: (profile: string | undefined) => Promise<DaemonHandle> = async (
-        profile: string | undefined
+    const ensureRunDaemon: (profile: string | undefined, stealth: boolean) => Promise<DaemonHandle> = async (
+        profile: string | undefined,
+        stealth: boolean
     ): Promise<DaemonHandle> => {
         if (config.daemon.url) {
             if (profile) {
                 throw new Error(`The browser profile ${profile} needs a daemon IronBee Express starts itself; this UI uses ${config.daemon.url}`);
+            }
+            if (stealth) {
+                throw new Error(`The stealth browser needs a daemon IronBee Express starts itself; this UI uses ${config.daemon.url}`);
             }
             // Revived on its port when local; its own environment decides live view.
             return ensureDaemon({
@@ -490,7 +504,13 @@ export async function startUiServer(config: FastConfig): Promise<UiServerHandle>
             });
         }
         const ironbeeEnv: string = JSON.stringify(daemonEnvFor(config.ironbee));
-        if (daemon && daemonProfile === profile && daemonIronBee === ironbeeEnv && (await isDaemonHealthy(daemon.baseUrl))) {
+        if (
+            daemon &&
+            daemonProfile === profile &&
+            daemonStealth === stealth &&
+            daemonIronBee === ironbeeEnv &&
+            (await isDaemonHealthy(daemon.baseUrl))
+        ) {
             return daemon;
         }
         if (daemon) {
@@ -498,6 +518,7 @@ export async function startUiServer(config: FastConfig): Promise<UiServerHandle>
             daemon = undefined;
         }
         daemonProfile = profile;
+        daemonStealth = stealth;
         daemonIronBee = ironbeeEnv;
         daemon = await ensureDaemon({
             // Long idle (~2 h): the UI stops it on close, and restarts one that exited at the next run.
@@ -512,6 +533,7 @@ export async function startUiServer(config: FastConfig): Promise<UiServerHandle>
                 LIVE_VIEW_TOKEN: token,
                 LIVE_VIEW_EVENTS_ENABLE: "false",
                 ...(profile ? profileEnv(profiles.ensure(profile)) : {}),
+                ...(stealth ? stealthEnv() : {}),
             },
         });
         return daemon;
@@ -587,9 +609,12 @@ export async function startUiServer(config: FastConfig): Promise<UiServerHandle>
         let client: DevtoolsClient | undefined;
         void Promise.resolve()
             .then((): Promise<DaemonHandle> => {
-                const profile: string | undefined = effectiveProfile(spec, spec.scenario ? store.get(spec.scenario) : undefined);
+                const loaded: Scenario | undefined = spec.scenario ? store.get(spec.scenario) : undefined;
+                const profile: string | undefined = effectiveProfile(spec, loaded);
+                const stealth: boolean = effectiveStealth(spec, loaded, config.daemon.stealth);
                 record.profile = profile;
-                return ensureRunDaemon(profile);
+                record.stealth = stealth || undefined;
+                return ensureRunDaemon(profile, stealth);
             })
             .then((handle: DaemonHandle): Promise<RunOutcome> => {
                 client = createDevtoolsClient({ baseUrl: handle.baseUrl, internalToken: handle.internalToken });
@@ -635,6 +660,7 @@ export async function startUiServer(config: FastConfig): Promise<UiServerHandle>
                 record.mode = outcome.mode;
                 record.scenario = outcome.scenario;
                 record.divergence = outcome.divergence;
+                record.botCheck = outcome.botCheck;
                 record.platform = outcome.platform;
                 record.generator = outcome.generator;
                 record.videoPath = outcome.videoPath;
@@ -734,6 +760,7 @@ export async function startUiServer(config: FastConfig): Promise<UiServerHandle>
             defaultTextModel: await suggestedTextModel(),
             candidates: Object.values(CandidateKind),
             defaultCandidates: config.text.candidates,
+            defaultStealth: config.daemon.stealth,
             liveView,
             ironbee: {
                 ok: config.ironbee.enabled,

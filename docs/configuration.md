@@ -30,6 +30,7 @@ Browser, web UI and storage:
 | `IBEXPRESS_DAEMON_PORT` | `2071` | Port of the daemon a CLI run starts. |
 | `IBEXPRESS_HEADLESS` | `true` | Run the browser without a window. `--headed` overrides it. |
 | `IBEXPRESS_IFRAMES` | `false` | Let the agent use controls inside the page's iframes, such as an embedded payment form. Keep it off where the start site embeds content you do not trust. |
+| `IBEXPRESS_STEALTH` | `false` | Run in the [stealth browser](#sites-that-refuse-the-browser) by default. `--stealth`, a scenario or the UI's checkbox turns it on per run. |
 | `IBEXPRESS_UI_HOST` | `127.0.0.1` | Address the web UI listens on. |
 | `IBEXPRESS_UI_PORT` | `15986` | Port the web UI listens on. |
 | `IBEXPRESS_SCENARIO_DIR` | the package's `examples/scenarios` | Where saved scenarios are kept. |
@@ -70,6 +71,7 @@ ibexpress run --scenario <name> [options]
 | `--value-desc <name=text>` | What a value or secret is for, for example `card="the payment card number"`. |
 | `--text-model <provider/model>` | The text model for this run, or `none`. |
 | `--profile <name>` | Run in a saved browser profile. `none` means a fresh browser. |
+| `--stealth` | Run in the [stealth browser](#sites-that-refuse-the-browser), for a site whose bot protection refuses the normal one. |
 | `--headed` | Show the browser window. Needed for [your turn](web-ui.md#your-turn) in a terminal. |
 | `--record` | Record a video of the run. |
 | `--json` | Print the result as JSON. |
@@ -108,3 +110,27 @@ You can point IronBee Express at a daemon you run yourself with `--daemon-url`. 
 cannot be used that way, and the web UI has no live view with it. Such a daemon needs `TOOL_PLUGINS`
 set to this package's `dist/devtools-plugin/control-tools.mjs`, and for the full feature set also
 `BROWSER_DIALOG_MODE=hold`, `BROWSER_FOLLOW_NEW_TABS=true` and `TOOL_INPUT_METADATA_ENABLE=true`.
+
+## Sites that refuse the browser
+
+Sites behind bot protection (Cloudflare, Akamai, DataDome, HUMAN, Kasada) refuse a browser that
+looks automated, before the agent takes a step: a "Just a moment…" page, "Access denied", a
+"Press & Hold" box. The browser IronBee Express starts already looks like the one a person runs:
+your Chrome when it is installed, a real window, no headless marks, the page's security policy
+kept. That gets past most of them. For the ones that still refuse it:
+
+- **The stealth browser** (`--stealth`, the UI's *Stealth browser* checkbox, or a scenario's
+  `stealth`). It leaves no automation trace a page can read. It captures no console messages, so
+  the review sees none, the IronBee trace has no browser spans, and the live view shows no marks
+  where the agent clicks. Use it for sites that need it.
+- **When the run's last page is still a bot check**, the run says so in a warning (and in the UI's
+  *Bot check* line): the site refused the browser, which is not the app's doing.
+- **Your network matters too.** Sites rate addresses: a home or office connection gets through
+  where a cloud server's address is refused. Testing your own site? Allow the agent in your bot
+  protection's settings instead (an allow rule for your test runs).
+- **Behind a proxy** (`BROWSER_PROXY_SERVER`), give the browser the clock and language of the
+  proxy's country, so they match its address: for a US one, `TZ=America/New_York` and
+  `BROWSER_LAUNCH_ARGS=--accept-lang=en-US`.
+- **A CAPTCHA or "Verify you are human" box** needs a person: the run hands the browser over (see
+  [your turn](web-ui.md#your-turn)).
+

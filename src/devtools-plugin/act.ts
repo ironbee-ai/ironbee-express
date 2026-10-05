@@ -886,8 +886,11 @@ export class Act implements Tool {
         run: ActionRun
     ): Promise<string | undefined> {
         const before: string = page.url();
-        const options: { waitUntil: "domcontentloaded"; timeout: number } = {
-            waitUntil: "domcontentloaded",
+        // Committed is enough: the next snapshot waits for the document. A page the
+        // back/forward cache restores (patchright leaves the cache on) fires no
+        // DOMContentLoaded, so waiting for it ran into the timeout.
+        const options: { waitUntil: "commit"; timeout: number } = {
+            waitUntil: "commit",
             timeout: HISTORY_TIMEOUT_MS,
         };
         run.input();

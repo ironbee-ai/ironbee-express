@@ -385,6 +385,15 @@ Secret values are never saved, only their names. Give them again on every run, f
 </details>
 
 <details>
+<summary><b>A site refuses the browser ("Just a moment…", "Access denied", "Press & Hold")</b></summary>
+
+That is the site's bot protection. The browser IronBee Express starts already looks like the one a
+person runs, which gets past most of it. For a site that still refuses it, run in the stealth browser:
+`--stealth`, or the UI's *Stealth browser* checkbox. A run whose last page is still a bot check says so
+in a warning. See [sites that refuse the browser](docs/configuration.md#sites-that-refuse-the-browser).
+</details>
+
+<details>
 <summary><b>The run ends BLOCKED on a login, CAPTCHA or SMS-code page</b></summary>
 
 These steps need a person. The run hands the browser over only when someone can take it:

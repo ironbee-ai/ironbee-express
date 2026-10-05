@@ -12,6 +12,7 @@ describe("loadConfig", (): void => {
         expect(config.text.providers[TextProvider.ANTHROPIC].apiKey).toBeUndefined();
         expect(config.daemon.port).toBe(DEFAULT_DAEMON_PORT);
         expect(config.daemon.headless).toBe(true);
+        expect(config.daemon.stealth).toBe(false);
     });
 
     it("selects the engine and text setup from the environment", (): void => {
@@ -23,6 +24,7 @@ describe("loadConfig", (): void => {
             OPENROUTER_API_KEY: "or-k",
             JEV_API_KEY: "k",
             IBEXPRESS_HEADLESS: "false",
+            IBEXPRESS_STEALTH: "true",
         });
         expect(config.engine.kind).toBe(EngineKind.JEV);
         expect(config.engine.jev.model).toBe("jev-latest");
@@ -31,6 +33,7 @@ describe("loadConfig", (): void => {
         expect(config.text.model).toEqual({ provider: TextProvider.OPENROUTER, model: "inception/mercury-2.5" });
         expect(config.text.providers[TextProvider.OPENROUTER]).toEqual({ apiKey: "or-k", baseUrl: "https://openrouter.ai/api/v1" });
         expect(config.daemon.headless).toBe(false);
+        expect(config.daemon.stealth).toBe(true);
     });
 
     it("rejects unknown values instead of silently falling back", (): void => {

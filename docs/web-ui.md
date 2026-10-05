@@ -26,7 +26,9 @@ Three status pills, green when ready and red when not. Hover over one for detail
   in quotes, for example: Log in, add the "iPhone 15 Pro" to the cart, then open the cart.
 - **Browser**: **Fresh** starts every run in a clean browser. A saved profile keeps its cookies and
   logins between runs, so you can sign in once. **+ New profile…** creates one, **Delete** removes
-  it.
+  it. **Stealth browser** is for a site whose bot protection refuses the normal one; it captures no
+  console messages, and the live view shows no marks where the agent clicks. See
+  [sites that refuse the browser](configuration.md#sites-that-refuse-the-browser).
 - **Values**: texts the agent may type, each with a name and an optional description of what it is
   for. Turn on **secret** for a value no model may see, and **password** for a login password. See
   [Text and secrets](text-and-secrets.md).

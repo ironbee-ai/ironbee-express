@@ -1,12 +1,12 @@
 /**
  * DevTools settings the control tools follow, read from the env the way
- * DevTools reads them (a flag is on only when it is "true"): the plugin runs in
- * DevTools' own process.
+ * DevTools reads them (a flag is on for "true", "1", "yes" or "on", in any
+ * case): the plugin runs in DevTools' own process.
  */
 
 function flag(name: string): boolean | undefined {
     const v: string | undefined = process.env[name]?.trim();
-    return v ? v === "true" : undefined;
+    return v ? /^(?:true|1|yes|on)$/i.test(v) : undefined;
 }
 
 /** The session follows the tabs its page opens (a target=_blank link waits for its tab). */

@@ -158,22 +158,47 @@ function hasInstalledChrome(): boolean {
     return installedChromePaths().some((p: string): boolean => existsSync(p));
 }
 
+/** The window a started browser opens: a common laptop window, its page about 1280x713. */
+export const DEFAULT_WINDOW_SIZE: string = "1280x800";
+/** The screen a headless browser reports: the most common desktop screen. */
+export const DEFAULT_SCREEN_SIZE: string = "1920x1080";
+
 /**
- * How a started browser presents itself to a site, as a person's browser does: the Google Chrome
- * installed on this machine when there is one. No language is set: Chrome sends this machine's
- * languages itself, where Playwright's locale emulation sends a single `Accept-Language` value in a
- * place Chrome never puts it. Left out when `base` (this process's environment) already sets it, so
- * it can be turned off there.
+ * How a started browser presents itself to a site, as a person's browser does — sites behind bot
+ * protection refuse what looks automated before the run takes a step:
+ * - the Google Chrome installed on this machine when there is one, else Playwright's full Chromium
+ *   (never its headless shell, which a page tells from Chrome);
+ * - a real 1280x800 window on a 1920x1080 screen instead of Playwright's emulated 1280x720 viewport
+ *   (headless: DevTools also drops `HeadlessChrome` from the user agent);
+ * - pages' Content-Security-Policy enforced: a page can tell when it is bypassed, and Cloudflare's
+ *   challenge then held every run (measured 0/2 bypassed, 4/4 enforced).
+ * No language is set: Chrome sends this machine's languages itself, where Playwright's locale
+ * emulation sends a single `Accept-Language` value in a place Chrome never puts it. Each is left out
+ * when `base` (this process's environment) already sets it, so it can be changed there.
  */
 export function browserDefaults(
     base: NodeJS.ProcessEnv,
     machine: { chromeInstalled: boolean } = { chromeInstalled: hasInstalledChrome() }
 ): Record<string, string> {
-    const defaults: Record<string, string> = {};
-    if (base.BROWSER_USE_INSTALLED_ON_SYSTEM === undefined && machine.chromeInstalled) {
-        defaults.BROWSER_USE_INSTALLED_ON_SYSTEM = "true";
-    }
-    return defaults;
+    const wanted: Record<string, string> = {
+        ...(machine.chromeInstalled ? { BROWSER_USE_INSTALLED_ON_SYSTEM: "true" } : {}),
+        BROWSER_HEADLESS_SHELL: "false",
+        BROWSER_WINDOW_SIZE: DEFAULT_WINDOW_SIZE,
+        BROWSER_SCREEN_SIZE: DEFAULT_SCREEN_SIZE,
+        BROWSER_BYPASS_CSP: "false",
+    };
+    return Object.fromEntries(Object.entries(wanted).filter(([name]: [string, string]): boolean => base[name] === undefined));
+}
+
+/**
+ * A stealth run's daemon: patchright drives the browser — Playwright patched to never enable CDP's
+ * Runtime domain, which a page can detect (Kasada-protected sites refused every run without it) —
+ * and nothing is put into its pages: no OpenTelemetry script (it patches `fetch` and XHR in the page's
+ * own world) and no action marks (their overlay is an element the page can see). The cost: the run
+ * captures no console messages, its trace has no browser spans, and the live view shows no marks.
+ */
+export function stealthEnv(): Record<string, string> {
+    return { BROWSER_DRIVER: "patchright", OTEL_ENABLE: "false", BROWSER_ACTION_ANIMATION: "false" };
 }
 
 /** The environment a started daemon runs with: this process's, the run's defaults, the caller's `env`, then what must hold. */

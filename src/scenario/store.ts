@@ -119,6 +119,9 @@ export class ScenarioStore {
                 throw new ScenarioError(`Scenario ${name} is not a scenario file (${field} is not a string)`);
             }
         }
+        if (parsed.stealth !== undefined && typeof parsed.stealth !== "boolean") {
+            throw new ScenarioError(`Scenario ${name} is not a scenario file (stealth is not true or false)`);
+        }
         // A kind this version does not know would fail the run in the text setup, not here.
         if (
             parsed.textCandidates !== undefined &&

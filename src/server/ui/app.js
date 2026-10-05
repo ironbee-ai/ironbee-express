@@ -173,6 +173,7 @@ function saveForm() {
         textModel: selectedTextModel(),
         candidates: selectedCandidates(),
         profile: selectedProfile(),
+        stealth: $("stealth").checked,
     };
     try {
         localStorage.setItem(STORE_KEY, JSON.stringify(data));
@@ -1425,7 +1426,12 @@ function renderResult(run) {
     const facts = h("dl", "rs-facts");
     fact(facts, "Run ended", runEnding(r));
     fact(facts, "Mode", run.mode);
-    fact(facts, "Browser", run.profile ? `profile ${run.profile}` : "fresh");
+    fact(facts, "Browser", `${run.profile ? `profile ${run.profile}` : "fresh"}${run.stealth ? " · stealth" : ""}`);
+    fact(
+        facts,
+        "Bot check",
+        run.botCheck ? `${run.botCheck.vendor} refused the browser on ${run.botCheck.host} (HTTP ${run.botCheck.status})${run.stealth ? "" : " — try the stealth browser"}` : ""
+    );
     fact(facts, "Text model", run.generator);
     fact(facts, "Scenario", run.scenario ? `${run.scenario}${run.recordingSaved ? " · recording cached" : ""}` : "");
     const page = h("a", "", r.finalUrl);
@@ -1606,6 +1612,7 @@ async function useScenario(name) {
     }
     $("profile").value = scenario.profile && state.profiles?.some((p) => p.name === scenario.profile) ? scenario.profile : "";
     renderProfileHint();
+    $("stealth").checked = scenario.stealth ?? state.config?.defaultStealth ?? false;
     hideOverwrite();
     $("save-as").value = scenario.name;
     $("save-status").textContent = "";
@@ -1639,6 +1646,7 @@ function clearScenario() {
     $("explore").checked = false;
     $("profile").value = "";
     renderProfileHint();
+    $("stealth").checked = state.config?.defaultStealth ?? false;
     saveForm();
 }
 
@@ -1764,6 +1772,7 @@ async function submit(event, confirmed = false) {
         textModel: selectedTextModel(),
         textCandidates: selectedCandidates(),
         profile: selectedProfile(),
+        stealth: $("stealth").checked,
         scenario: state.scenario?.name,
         explore: $("explore").checked,
     };
@@ -1826,6 +1835,7 @@ async function saveScenario(overwrite = false) {
             textModel: selectedTextModel(),
             textCandidates: selectedCandidates(),
             profile: selectedProfile(),
+            stealth: $("stealth").checked,
             overwrite,
         }),
     });
@@ -1864,6 +1874,8 @@ async function init() {
     }
     $("add-value").addEventListener("click", () => addRow("values", "value-row"));
     await loadProfiles(saved?.profile);
+    $("stealth").checked = saved?.stealth ?? state.config.defaultStealth ?? false;
+    $("stealth").addEventListener("change", saveForm);
     $("profile").addEventListener("change", () => {
         renderProfileHint();
         saveForm();

@@ -60,6 +60,8 @@ export interface Scenario {
     textModel?: string;
     /** The saved browser profile its runs use (logins kept between runs); absent = a fresh browser. */
     profile?: string;
+    /** Its runs use the stealth browser (a site whose bot protection refuses the normal one); absent = the configured default. */
+    stealth?: boolean;
     createdAt: string;
     updatedAt: string;
 }

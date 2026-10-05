@@ -30,6 +30,13 @@ export interface DaemonConfig {
      * and a secret may reach an embedded third-party document.
      */
     iframes: boolean;
+    /**
+     * Run in the stealth browser by default (a run, a scenario or the UI form can ask per run):
+     * patchright drives it, so no CDP Runtime domain a page can detect is enabled (sites behind
+     * Kasada refuse the browser without it), and no OpenTelemetry script goes into the page. The
+     * cost: no console messages are captured, and the trace has no browser spans.
+     */
+    stealth: boolean;
 }
 
 export interface FastConfig {
@@ -146,6 +153,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): FastConfig {
             script: env.IRONBEE_DEVTOOLS_DAEMON_SCRIPT,
             headless: parseBool(env.IBEXPRESS_HEADLESS, true),
             iframes: parseBool(env.IBEXPRESS_IFRAMES, false),
+            stealth: parseBool(env.IBEXPRESS_STEALTH, false),
         },
         ui: {
             host: env.IBEXPRESS_UI_HOST ?? "127.0.0.1",

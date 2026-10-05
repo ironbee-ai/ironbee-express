@@ -811,6 +811,9 @@ describe("ScenarioStore", (): void => {
             writeFileSync(join(dir, `${file}.json`), JSON.stringify({ formatVersion: 1, goal: "g", values: {}, secretNames: [], [field]: value }));
             expect((): Scenario => store.get(file)).toThrow(new RegExp(`${field} is not a string`));
         }
+        // The stealth browser is a yes or no: a "yes" would read as truthy and start the wrong daemon.
+        writeFileSync(join(dir, "sstr.json"), JSON.stringify({ formatVersion: 1, goal: "g", values: {}, secretNames: [], stealth: "yes" }));
+        expect((): Scenario => store.get("sstr")).toThrow(/stealth is not true or false/);
         // Text candidate kinds: a typo or a bare string would fail the run in the text setup.
         for (const [file, value] of [
             ["tclit", ["literal"]],

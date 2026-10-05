@@ -53,6 +53,13 @@ export enum NetworkWait {
     BUSY = "busy",
 }
 
+/** A document (a page's or a frame's) the browser loaded: where, its status and response headers. */
+export interface DocumentResponse {
+    url: string;
+    status?: number;
+    headers: Record<string, string>;
+}
+
 export class DevtoolsClient {
     readonly baseUrl: string;
     readonly sessionId: string;
@@ -272,6 +279,23 @@ export class DevtoolsClient {
             }
         }
         return out.sort((a: CapturedRequest, b: CapturedRequest): number => a.timestamp - b.timestamp);
+    }
+
+    /** The latest document responses since `sinceMs`, oldest first, with their response headers. */
+    async documentResponses(sinceMs: number, limit: number = 10): Promise<DocumentResponse[]> {
+        const page: { requests?: any[] } = await this.call("o11y_get-http-requests", {
+            resourceType: "document",
+            timestamp: sinceMs,
+            includeResponseHeaders: true,
+            limit: { count: limit, from: "end" },
+        });
+        return (page.requests ?? []).map(
+            (r: any): DocumentResponse => ({
+                url: String(r.url),
+                status: r.response?.status,
+                headers: r.response?.headers ?? {},
+            })
+        );
     }
 
     /**

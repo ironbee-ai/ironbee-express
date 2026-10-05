@@ -46,8 +46,9 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@ironbee-ai/devtools": "^0.49.0",
+    "@ironbee-ai/devtools": "0.51.0",
     "commander": "^12.1.0",
+    "patchright": "1.62.1",
     "undici": "^7.30.0",
     "ws": "^8.18.3"
   },

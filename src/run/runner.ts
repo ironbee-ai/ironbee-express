@@ -24,7 +24,8 @@ import { Agent, AskUser, RescueEvent, RunResult, RunStatus, StepEvent, StepMode 
 import { EngineDecider, Operation } from "../agent/policy";
 import { LlmTakeover } from "../agent/rescue";
 import { FastConfig } from "../config/config";
-import { DevtoolsClient, RecordingStopped } from "../devtools/client";
+import { DevtoolsClient, DocumentResponse, RecordingStopped } from "../devtools/client";
+import { BotCheck, botCheckWarning, lastPageBotCheck } from "./bot-check";
 import { boundOriginOf, newFrameHosts, SeededSecrets, secretBundle } from "../devtools/secrets";
 import { ControlSnapshot } from "../devtools/types";
 import { createEngine } from "../engine";
@@ -80,6 +81,12 @@ export interface RunSpec {
      * caller starts the daemon in it — see {@link effectiveProfile}.
      */
     profile?: string;
+    /**
+     * The stealth browser (patchright, no OpenTelemetry script in the page): true / false for this
+     * run; absent = the scenario's, else the configured default. The caller starts the daemon in
+     * it — see {@link effectiveStealth}.
+     */
+    stealth?: boolean;
     /** Run this saved scenario (its goal, URL, values — overridable above). */
     scenario?: string;
     /** Save this prompt as a scenario of this name first (an explicit save), then run it as that scenario. */
@@ -162,6 +169,10 @@ export interface RunOutcome extends Partial<RunReview> {
     scenario?: string;
     /** The saved browser profile it ran in; absent = a fresh browser. */
     profile?: string;
+    /** It ran in the stealth browser. */
+    stealth?: boolean;
+    /** The run's last page was a bot-protection vendor's challenge or block. */
+    botCheck?: BotCheck;
     /** Why a replay handed over to the engine. */
     divergence?: string;
     /** The run on the IronBee platform, when reporting is on. */
@@ -197,6 +208,11 @@ export function effectiveProfile(spec: RunSpec, scenario: Scenario | undefined):
     return profile ? validateProfileName(profile) : undefined;
 }
 
+/** Whether a run uses the stealth browser: its own choice, else its scenario's, else the configured default. */
+export function effectiveStealth(spec: RunSpec, scenario: Scenario | undefined, configured: boolean): boolean {
+    return spec.stealth ?? scenario?.stealth ?? configured;
+}
+
 /** The effective run: a scenario's definition overlaid with this run's inputs. */
 interface EffectiveRun {
     goal: string;
@@ -209,6 +225,8 @@ interface EffectiveRun {
     textModel?: string;
     textCandidates?: CandidateKind[];
     profile?: string;
+    /** The run's own or its scenario's choice of the stealth browser; absent = the configured default. */
+    stealth?: boolean;
 }
 
 /** Replaceable collaborators (tests pass a fake engine). */
@@ -245,6 +263,7 @@ function saveScenario(store: ScenarioStore, name: string, run: EffectiveRun, loa
         textCandidates: run.textCandidates,
         textModel: run.textModel,
         ...(run.profile ? { profile: run.profile } : {}),
+        ...(run.stealth ? { stealth: true } : {}),
         createdAt: base?.createdAt ?? now,
         updatedAt: now,
     });
@@ -268,6 +287,7 @@ function effectiveRun(spec: RunSpec, scenario: Scenario | undefined): EffectiveR
         textModel: spec.textModel ?? scenario?.textModel,
         textCandidates: spec.textCandidates ?? scenario?.textCandidates,
         profile: effectiveProfile(spec, scenario),
+        stealth: spec.stealth ?? scenario?.stealth,
     };
 }
 
@@ -411,6 +431,7 @@ export async function runGoal(
     const runStartedMs: number = Date.now();
     let videoRecording: boolean = false;
     let videoPath: string | undefined;
+    let botCheck: BotCheck | undefined;
     let videoParts: string[] | undefined;
     let result: RunResult;
     let mode: RunMode;
@@ -604,6 +625,15 @@ export async function runGoal(
         }
         // The run's time is final; what follows (the video, the evidence read) is not the run's.
         hooks.onClockStop?.(result.elapsedMs);
+        // A last page a bot-protection vendor served is the site refusing the browser, not the app's
+        // doing: said, with what may get past it. Never the run's failure.
+        botCheck = await client
+            .documentResponses(startPageAtMs - 1_000)
+            .then((documents: DocumentResponse[]): BotCheck | undefined => lastPageBotCheck(result.finalSnapshot.url, documents))
+            .catch((): undefined => undefined);
+        if (botCheck) {
+            hooks.onWarning?.(botCheckWarning(botCheck, run.stealth ?? config.daemon.stealth));
+        }
     } catch (err: unknown) {
         // The run is over without a result: the platform's session closes with the error, not left open.
         if (reporter) {
@@ -752,6 +782,8 @@ export async function runGoal(
         ...(videoParts ? { videoParts } : {}),
         scenario: scenario?.name,
         ...(run.profile ? { profile: run.profile } : {}),
+        ...((run.stealth ?? config.daemon.stealth) ? { stealth: true } : {}),
+        ...(botCheck ? { botCheck } : {}),
         divergence,
         ...(requests ? { requests } : {}),
         ...(reporter

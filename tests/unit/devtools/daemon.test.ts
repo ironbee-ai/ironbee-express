@@ -1,4 +1,14 @@
-import { browserDefaults, controlToolsPluginPath, daemonEnv, installedChromePaths, SESSION_IDLE_SECONDS, toolPluginsEnv } from "../../../src/devtools/daemon";
+import {
+    browserDefaults,
+    controlToolsPluginPath,
+    daemonEnv,
+    DEFAULT_SCREEN_SIZE,
+    DEFAULT_WINDOW_SIZE,
+    installedChromePaths,
+    SESSION_IDLE_SECONDS,
+    stealthEnv,
+    toolPluginsEnv,
+} from "../../../src/devtools/daemon";
 
 import path from "path";
 
@@ -39,30 +49,60 @@ describe("daemonEnv", (): void => {
 });
 
 describe("browserDefaults", (): void => {
-    it("uses the installed Chrome, and sets no language", (): void => {
-        expect(browserDefaults({}, { chromeInstalled: true })).toEqual({ BROWSER_USE_INSTALLED_ON_SYSTEM: "true" });
+    const NATURAL: Record<string, string> = {
+        BROWSER_HEADLESS_SHELL: "false",
+        BROWSER_WINDOW_SIZE: DEFAULT_WINDOW_SIZE,
+        BROWSER_SCREEN_SIZE: DEFAULT_SCREEN_SIZE,
+        BROWSER_BYPASS_CSP: "false",
+    };
+
+    it("uses the installed Chrome in a real window with the CSP enforced, and sets no language", (): void => {
+        expect(browserDefaults({}, { chromeInstalled: true })).toEqual({ BROWSER_USE_INSTALLED_ON_SYSTEM: "true", ...NATURAL });
+        expect(browserDefaults({}, { chromeInstalled: true }).BROWSER_LOCALE).toBeUndefined();
     });
 
-    it("keeps the bundled browser when Chrome is not installed", (): void => {
-        expect(browserDefaults({}, { chromeInstalled: false })).toEqual({});
+    it("runs the full Chromium, never the headless shell, when Chrome is not installed", (): void => {
+        expect(browserDefaults({}, { chromeInstalled: false })).toEqual(NATURAL);
     });
 
-    it("leaves it to this process's environment when it sets it", (): void => {
-        const base: NodeJS.ProcessEnv = { BROWSER_USE_INSTALLED_ON_SYSTEM: "false" };
-        expect(browserDefaults(base, { chromeInstalled: true })).toEqual({});
+    it("leaves each to this process's environment when it sets it", (): void => {
+        const base: NodeJS.ProcessEnv = { BROWSER_USE_INSTALLED_ON_SYSTEM: "false", BROWSER_BYPASS_CSP: "true", BROWSER_WINDOW_SIZE: "1440x900" };
+        expect(browserDefaults(base, { chromeInstalled: true })).toEqual({
+            BROWSER_HEADLESS_SHELL: "false",
+            BROWSER_SCREEN_SIZE: DEFAULT_SCREEN_SIZE,
+        });
         const env: NodeJS.ProcessEnv = daemonEnv({ port: 1, headless: true }, "t", base, browserDefaults(base, { chromeInstalled: true }));
         expect(env.BROWSER_USE_INSTALLED_ON_SYSTEM).toBe("false");
+        expect(env.BROWSER_BYPASS_CSP).toBe("true");
+        expect(env.BROWSER_WINDOW_SIZE).toBe("1440x900");
         expect(env.BROWSER_LOCALE).toBeUndefined();
     });
 
     it("lets the caller's env override it", (): void => {
         const env: NodeJS.ProcessEnv = daemonEnv(
-            { port: 1, headless: true, env: { BROWSER_USE_INSTALLED_ON_SYSTEM: "false" } },
+            { port: 1, headless: true, env: { BROWSER_USE_INSTALLED_ON_SYSTEM: "false", BROWSER_BYPASS_CSP: "true" } },
             "t",
             {},
             browserDefaults({}, { chromeInstalled: true })
         );
         expect(env.BROWSER_USE_INSTALLED_ON_SYSTEM).toBe("false");
+        expect(env.BROWSER_BYPASS_CSP).toBe("true");
+    });
+});
+
+describe("stealthEnv", (): void => {
+    it("drives the browser with patchright and puts nothing in the page: no OpenTelemetry script, no action marks", (): void => {
+        expect(stealthEnv()).toEqual({ BROWSER_DRIVER: "patchright", OTEL_ENABLE: "false", BROWSER_ACTION_ANIMATION: "false" });
+    });
+
+    it("wins over the IronBee environment the run's env starts from", (): void => {
+        const env: NodeJS.ProcessEnv = daemonEnv(
+            { port: 1, headless: true, env: { OTEL_ENABLE: "true", OTEL_EXPORTER_TYPE: "otlp/http-protobuf", ...stealthEnv() } },
+            "t",
+            {}
+        );
+        expect(env.OTEL_ENABLE).toBe("false");
+        expect(env.BROWSER_DRIVER).toBe("patchright");
     });
 });
 
